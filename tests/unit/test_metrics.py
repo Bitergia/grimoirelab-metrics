@@ -216,6 +216,70 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         categories = self.analyzer.get_developer_categories()
         self.assertDictEqual(categories, {"core": 2, "regular": 1, "casual": 1})
 
+    def test_get_categories_one_developer(self):
+        """Test if the categories are calculated correctly when there is only one developer"""
+
+        categories = self.analyzer.get_developer_categories()
+        self.assertDictEqual(categories, {"core": 0, "regular": 0, "casual": 0})
+
+        # Add a core developer with 100% of the contributions
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {"Author": "Author 1 <author1@example_new.com>", "message": "Another commit"},
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {"Author": "Author 1 <author1@example_new.com>", "message": "Another commit"},
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {"Author": "Author 1 <author1@example_new.com>", "message": "Another commit"},
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {"Author": "Author 1 <author1@example_new.com>", "message": "Another commit"},
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        categories = self.analyzer.get_developer_categories()
+        self.assertDictEqual(categories, {"core": 1, "regular": 0, "casual": 0})
+
+    def test_get_developer_categories_tied(self):
+        """Test if the categories are calculated correctly when the core developers have the same contributions"""
+
+        categories = self.analyzer.get_developer_categories()
+        self.assertDictEqual(categories, {"core": 0, "regular": 0, "casual": 0})
+
+        # Add core developers with the same number of contributions
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {"Author": "Author 1 <author1@example_new.com>", "message": "Another commit"},
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {"Author": "Author 2 <author2@example_new.com>", "message": "Another commit"},
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {"Author": "Author 3 <author3@example_new.com>", "message": "Another commit"},
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {"Author": "Author 4 <author4@example_new.com>", "message": "Another commit"},
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {"Author": "Author 5 <author5@example_new.com>", "message": "Another commit"},
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        categories = self.analyzer.get_developer_categories()
+        self.assertDictEqual(categories, {"core": 4, "regular": 1, "casual": 0})
+
 
 if __name__ == "__main__":
     unittest.main()
