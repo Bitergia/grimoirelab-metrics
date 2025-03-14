@@ -19,7 +19,7 @@
 import json
 import unittest
 
-from trustable_cli.metrics import GitEventsAnalyzer
+from grimoirelab_metrics.metrics import GitEventsAnalyzer
 
 
 def read_file(filename):

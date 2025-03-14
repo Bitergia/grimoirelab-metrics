@@ -33,8 +33,8 @@ from spdx_tools.spdx.model import SpdxNone, SpdxNoAssertion
 from spdx_tools.spdx.parser.error import SPDXParsingError
 from spdx_tools.spdx.parser.parse_anything import parse_file
 
-from trustable_cli.grimoirelab_client import GrimoireLabClient
-from trustable_cli.metrics import get_repository_metrics
+from grimoirelab_metrics.grimoirelab_client import GrimoireLabClient
+from grimoirelab_metrics.metrics import get_repository_metrics
 
 if typing.TYPE_CHECKING:
     from typing import Any
@@ -80,7 +80,7 @@ GIT_REPO_REGEX = r"((git|http(s)?)|(git@[\w\.]+))://?([\w\.@\:/\-~]+)(\.git)(/)?
 @click.option("--verbose", is_flag=True, default=False, help="Increase output verbosity")
 @click.option("--code-file-pattern", help="Regular expression to match code file types")
 @click.option("--binary-file-pattern", help="Regular expression to match binary file types")
-def trustable_grimoirelab_score(
+def grimoirelab_metrics(
     filename: str,
     grimoirelab_url: str,
     grimoirelab_user: str,
@@ -96,7 +96,7 @@ def trustable_grimoirelab_score(
     code_file_pattern: str | None = None,
     binary_file_pattern: str | None = None,
 ) -> None:
-    """Calculate metrics for Trustable using GrimoireLab.
+    """Calculate metrics using GrimoireLab.
 
     Given a SPDX SBOM file with git repositories as input, this tool will generate
     a set of Project Health metrics. These metrics are calculated using the data
@@ -111,8 +111,6 @@ def trustable_grimoirelab_score(
     logging.basicConfig(level=log_level, format="%(asctime)s - %(levelname)s - %(message)s")
 
     try:
-        logging.info(f"Parsing file {filename}")
-
         grimoirelab_client = GrimoireLabClient(grimoirelab_url, grimoirelab_user, grimoirelab_password)
         grimoirelab_client.connect()
 
@@ -172,6 +170,8 @@ def get_sbom_packages(file: str) -> dict[str, str]:
 
     :return: Dict with package and repositories.
     """
+    logging.info(f"Parsing file {file}")
+
     packages = {}
     document = parse_file(file)
     for package in document.packages:
@@ -324,4 +324,4 @@ def schedule_repository(grimoirelab_client: GrimoireLabClient, uri: str, datasou
 
 
 if __name__ == "__main__":
-    trustable_grimoirelab_score()
+    grimoirelab_metrics()

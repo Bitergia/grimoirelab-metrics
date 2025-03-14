@@ -1,7 +1,9 @@
-# trustable-grimoirelab-score
+# grimoirelab-metrics
 
-Client to generate a Trustable score of Project Health metrics using the
+Client to generate GrimoireLab metrics for Project Health using the
 software analytics platform [GrimoireLab](https://github.com/chaoss/grimoirelab).
+
+![grimoirelab_metrics_schema.jpg](images/grimoirelab_metrics_schema.jpg)
 
 ## Installation
 
@@ -22,11 +24,11 @@ Once you have `poetry` running, move to the next section.
 1. Clone the repository:
 
     ```bash
-    git clone git@github.com:Bitergia/trustable-grimoirelab-cli.git
-    cd trustable-cli
+    git clone git@github.com:Bitergia/grimoirelab-metrics.git
+    cd grimoirelab_metrics
     ```
 
-1. Install dependencies and tool:
+2. Install dependencies and tool:
 
     ```bash
     poetry update
@@ -49,7 +51,7 @@ is not available on GrimoireLab, the tool will add it to GrimoireLab to have
 it analyzed.
 
 ```bash
-trustable spdx.xml \
+grimoirelab-metrics spdx.xml \
   --grimoirelab-url http://localhost:8000 \
   --grimoirelab-user user --grimoirelab-password password \
   --opensearch-url https://admin:admin@127.0.0.1:9200 \
