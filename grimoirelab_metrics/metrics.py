@@ -51,7 +51,14 @@ FILE_TYPE_BINARY = (
 
 
 class GitEventsAnalyzer:
-    def __init__(self, code_file_pattern: str | None = None, binary_file_pattern: str | None = None):
+    def __init__(
+        self,
+        code_file_pattern: str | None = None,
+        binary_file_pattern: str | None = None,
+        pony_threshold: float = 0.5,
+        elephant_threshold: float = 0.5,
+        dev_categories_thresholds: tuple[float, float] = (0.8, 0.95),
+    ):
         self.total_commits: int = 0
         self.contributors: Counter = Counter()
         self.companies: Counter = Counter()
@@ -61,6 +68,9 @@ class GitEventsAnalyzer:
         self.messages_sizes: list = []
         self.re_code_pattern = re.compile(code_file_pattern or FILE_TYPE_CODE)
         self.re_binary_pattern = re.compile(binary_file_pattern or FILE_TYPE_BINARY)
+        self.pony_threshold = pony_threshold
+        self.elephant_threshold = elephant_threshold
+        self.dev_categories_thresholds = dev_categories_thresholds
 
     def process_events(self, events: iter(dict[str, Any])):
         for event in events:
@@ -93,7 +103,7 @@ class GitEventsAnalyzer:
         for _, contributions in self.contributors.most_common():
             partial_contributions += contributions
             pony_factor += 1
-            if partial_contributions / self.total_commits > 0.5:
+            if partial_contributions / self.total_commits > self.pony_threshold:
                 break
 
         return pony_factor
@@ -110,7 +120,7 @@ class GitEventsAnalyzer:
         for _, contributions in self.companies.most_common():
             partial_contributions += contributions
             elephant_factor += 1
-            if partial_contributions / self.total_commits > 0.5:
+            if partial_contributions / self.total_commits > self.elephant_threshold:
                 break
 
         return elephant_factor
@@ -173,8 +183,8 @@ class GitEventsAnalyzer:
         core = 0
         regular = 0
         casual = 0
-        regular_threshold = int(0.8 * self.total_commits)
-        casual_threshold = int(0.95 * self.total_commits)
+        regular_threshold = int(self.dev_categories_thresholds[0] * self.total_commits)
+        casual_threshold = int(self.dev_categories_thresholds[1] * self.total_commits)
         acc_commits = 0
         last_core_contribution = 0
 
@@ -244,6 +254,9 @@ def get_repository_metrics(
     verify_certs: bool = True,
     code_file_pattern: str | None = None,
     binary_file_pattern: str | None = None,
+    pony_threshold: float | None = None,
+    elephant_threshold: float | None = None,
+    dev_categories_thresholds: tuple[float, float] = (0.8, 0.95),
 ):
     """
     Get the metrics from a repository.
@@ -256,6 +269,9 @@ def get_repository_metrics(
     :param to_date: End date, by default None
     :param code_file_pattern: Regular expression to match code file types.
     :param binary_file_pattern: Regular expression to match binary file types.
+    :param pony_threshold: Threshold for the pony factor
+    :param elephant_threshold: Threshold for the elephant factor
+    :param dev_categories_thresholds: Threshold for the developer categories
     """
     os_conn = connect_to_opensearch(opensearch_url, verify_certs=verify_certs)
 
@@ -263,7 +279,13 @@ def get_repository_metrics(
 
     events = get_repository_events(os_conn, opensearch_index, repository, from_date, to_date)
 
-    analyzer = GitEventsAnalyzer(code_file_pattern=code_file_pattern, binary_file_pattern=binary_file_pattern)
+    analyzer = GitEventsAnalyzer(
+        code_file_pattern=code_file_pattern,
+        binary_file_pattern=binary_file_pattern,
+        pony_threshold=pony_threshold,
+        elephant_threshold=elephant_threshold,
+        dev_categories_thresholds=dev_categories_thresholds,
+    )
     analyzer.process_events(events)
 
     metrics["metrics"]["total_commits"] = analyzer.get_commit_count()

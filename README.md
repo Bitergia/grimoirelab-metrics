@@ -57,9 +57,12 @@ grimoirelab-metrics spdx.xml \
   --opensearch-url https://admin:admin@127.0.0.1:9200 \
   --opensearch-index events \
   --from-date 2024-01-01 --to-date 2025-01-01 \
-  --repository-timeout 3600
+  --repository-timeout 3600 \
   --code-file-pattern "\.py$|\.js$" \
   --binary-file-pattern "\.exe$|\.tar$" \
+  --pony-threshold 0.5 \
+  --elephant-threshold 0.5 \
+  --dev-categories-thresholds 0.8 0.95 \
   --output metrics.json
 ```
 

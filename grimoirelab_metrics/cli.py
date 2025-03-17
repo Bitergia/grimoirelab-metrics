@@ -80,6 +80,17 @@ GIT_REPO_REGEX = r"((git|http(s)?)|(git@[\w\.]+))://?([\w\.@\:/\-~]+)(\.git)(/)?
 @click.option("--verbose", is_flag=True, default=False, help="Increase output verbosity")
 @click.option("--code-file-pattern", help="Regular expression to match code file types")
 @click.option("--binary-file-pattern", help="Regular expression to match binary file types")
+@click.option("--pony-threshold", type=click.FloatRange(0, 1), show_default=True, help="Pony factor threshold", default=0.5)
+@click.option(
+    "--elephant-threshold", type=click.FloatRange(0, 1), show_default=True, help="Elephant factor threshold", default=0.5
+)
+@click.option(
+    "--dev-categories-thresholds",
+    type=(click.FloatRange(0, 1), click.FloatRange(0, 1)),
+    show_default=True,
+    help="Developer categories thresholds",
+    default=(0.8, 0.95),
+)
 def grimoirelab_metrics(
     filename: str,
     grimoirelab_url: str,
@@ -95,6 +106,9 @@ def grimoirelab_metrics(
     verbose: bool = False,
     code_file_pattern: str | None = None,
     binary_file_pattern: str | None = None,
+    pony_threshold: float = 0.5,
+    elephant_threshold: float = 0.5,
+    dev_categories_thresholds: tuple[float, float] = (0.8, 0.95),
 ) -> None:
     """Calculate metrics using GrimoireLab.
 
@@ -136,6 +150,9 @@ def grimoirelab_metrics(
             timeout=repository_timeout,
             code_file_pattern=code_file_pattern,
             binary_file_pattern=binary_file_pattern,
+            pony_threshold=pony_threshold,
+            elephant_threshold=elephant_threshold,
+            dev_categories_thresholds=dev_categories_thresholds,
         )
 
         package_metrics = {"packages": {}}
@@ -212,6 +229,9 @@ def generate_metrics_when_ready(
     timeout: int = 3600,
     code_file_pattern: str | None = None,
     binary_file_pattern: str | None = None,
+    pony_threshold: float = 0.5,
+    elephant_threshold: float = 0.5,
+    dev_categories_thresholds: tuple[float, float] = (0.8, 0.95),
 ) -> dict[str:Any]:
     """Generate metrics once the repositories have finished the collection.
 
@@ -225,6 +245,9 @@ def generate_metrics_when_ready(
     :param timeout: Seconds to wait before failing getting metrics
     :param code_file_pattern: Regular expression to match code file types.
     :param binary_file_pattern: Regular expression to match binary file types.
+    :param pony_threshold: Pony Factor threshold.
+    :param elephant_threshold: Elephant Factor threshold.
+    :param dev_categories_thresholds: Developer Categories thresholds.
     """
     logging.info("Generating metrics")
 
@@ -247,6 +270,9 @@ def generate_metrics_when_ready(
                     verify_certs=verify_certs,
                     code_file_pattern=code_file_pattern,
                     binary_file_pattern=binary_file_pattern,
+                    pony_threshold=pony_threshold,
+                    elephant_threshold=elephant_threshold,
+                    dev_categories_thresholds=dev_categories_thresholds,
                 )
                 processed.add(repository)
 
