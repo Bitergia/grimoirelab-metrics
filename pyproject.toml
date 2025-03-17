@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "trustable-cli"
+name = "grimoirelab-metrics"
 version = "0.0.0"
 description = ""
 authors = [
@@ -7,10 +7,10 @@ authors = [
 ]
 license = "GPL-3.0+"
 readme = "README.md"
-packages = [{include = "trustable_cli"}]
+packages = [{include = "grimoirelab_metrics"}]
 
 [tool.poetry.scripts]
-trustable = "trustable_cli.cli:trustable_grimoirelab_score"
+grimoirelab-metrics = "grimoirelab_metrics.cli:grimoirelab_metrics"
 
 [tool.poetry.dependencies]
 python = "^3.11"

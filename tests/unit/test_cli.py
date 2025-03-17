@@ -29,7 +29,7 @@ import requests
 from unittest.mock import patch
 
 from click.testing import CliRunner
-from trustable_cli.cli import trustable_grimoirelab_score, get_repository
+from grimoirelab_metrics.cli import grimoirelab_metrics, get_repository
 
 
 GRIMOIRELAB_URL = "http://localhost:8000"
@@ -134,7 +134,7 @@ class TestCli(unittest.TestCase):
         os.remove(self.temp_file.name)
 
     @httpretty.activate
-    @patch("trustable_cli.cli.get_repository_metrics")
+    @patch("grimoirelab_metrics.cli.get_repository_metrics")
     def test_valid_file(self, mock_get_repository_metrics):
         """Check if it schedules tasks to analyze all git repositories from a valid file"""
 
@@ -144,7 +144,7 @@ class TestCli(unittest.TestCase):
 
         runner = CliRunner()
         result = runner.invoke(
-            trustable_grimoirelab_score,
+            grimoirelab_metrics,
             [
                 "./data/valid.spdx.xml",
                 "--grimoirelab-url",
@@ -182,7 +182,7 @@ class TestCli(unittest.TestCase):
                 i += 1
 
     @httpretty.activate
-    @patch("trustable_cli.cli.get_repository_metrics")
+    @patch("grimoirelab_metrics.cli.get_repository_metrics")
     def test_verbose(self, mock_get_repository_metrics):
         """Check if it logs all information when using '--verbose'"""
 
@@ -192,7 +192,7 @@ class TestCli(unittest.TestCase):
 
         runner = CliRunner()
         result = runner.invoke(
-            trustable_grimoirelab_score,
+            grimoirelab_metrics,
             [
                 "./data/valid.spdx.xml",
                 "--grimoirelab-url",
@@ -221,7 +221,7 @@ class TestCli(unittest.TestCase):
         http_requests = setup_add_repository_mock_server()
         runner = CliRunner()
         result = runner.invoke(
-            trustable_grimoirelab_score,
+            grimoirelab_metrics,
             [
                 "invalid.doc",
                 "--grimoirelab-url",
@@ -246,7 +246,7 @@ class TestCli(unittest.TestCase):
         http_requests = setup_add_repository_mock_server()
         runner = CliRunner()
         result = runner.invoke(
-            trustable_grimoirelab_score,
+            grimoirelab_metrics,
             [
                 "./data/invalid_format.spdx.json",
                 "--grimoirelab-url",
@@ -265,7 +265,7 @@ class TestCli(unittest.TestCase):
         self.assertEqual(len(http_requests), 0)
 
     @httpretty.activate
-    @patch("trustable_cli.cli.get_repository_metrics")
+    @patch("grimoirelab_metrics.cli.get_repository_metrics")
     def test_no_repository(self, mock_get_repository_metrics):
         """Check if it returns a warning when a package does not provide a git repository"""
 
@@ -275,7 +275,7 @@ class TestCli(unittest.TestCase):
 
         runner = CliRunner()
         result = runner.invoke(
-            trustable_grimoirelab_score,
+            grimoirelab_metrics,
             [
                 "./data/missing_repo.spdx.xml",
                 "--grimoirelab-url",
@@ -297,7 +297,7 @@ class TestCli(unittest.TestCase):
         self.assertEqual(len(http_requests), 4)
 
     @httpretty.activate
-    @patch("trustable_cli.cli.get_repository_metrics")
+    @patch("grimoirelab_metrics.cli.get_repository_metrics")
     def test_invalid_git_repository(self, mock_get_repository_metrics):
         """Check if it returns a warning when a package URI is not a valid git repository"""
 
@@ -307,7 +307,7 @@ class TestCli(unittest.TestCase):
 
         runner = CliRunner()
         result = runner.invoke(
-            trustable_grimoirelab_score,
+            grimoirelab_metrics,
             [
                 "./data/invalid_repo.spdx.xml",
                 "--grimoirelab-url",
@@ -333,7 +333,7 @@ class TestCli(unittest.TestCase):
         http_requests = setup_add_repository_mock_server()
         runner = CliRunner()
         result = runner.invoke(
-            trustable_grimoirelab_score,
+            grimoirelab_metrics,
             [
                 "./data/no_file.xml",
                 "--grimoirelab-url",
@@ -358,7 +358,7 @@ class TestCli(unittest.TestCase):
         http_requests = setup_add_repository_mock_server()
         runner = CliRunner()
         result = runner.invoke(
-            trustable_grimoirelab_score,
+            grimoirelab_metrics,
             [
                 "./data/valid.spdx.xml",
                 "--grimoirelab-url",
@@ -377,7 +377,7 @@ class TestCli(unittest.TestCase):
         self.assertEqual(len(http_requests), 5)
 
     @httpretty.activate
-    @patch("trustable_cli.cli.get_repository_metrics")
+    @patch("grimoirelab_metrics.cli.get_repository_metrics")
     def test_never_ending_repository(self, mock_get_repository_metrics):
         """Check if it returns a warning when a repository task never ends"""
 
@@ -388,7 +388,7 @@ class TestCli(unittest.TestCase):
         runner = CliRunner()
 
         result = runner.invoke(
-            trustable_grimoirelab_score,
+            grimoirelab_metrics,
             [
                 "./data/valid.spdx.xml",
                 "--grimoirelab-url",

@@ -31,7 +31,7 @@ from testcontainers.mysql import MySqlContainer
 from testcontainers.opensearch import OpenSearchContainer
 from testcontainers.core.waiting_utils import wait_for_logs
 
-from trustable_cli.cli import trustable_grimoirelab_score
+from grimoirelab_metrics.cli import grimoirelab_metrics
 
 GRIMOIRELAB_URL = "http://localhost:8000"
 
@@ -39,8 +39,8 @@ GRIMOIRELAB_URL = "http://localhost:8000"
 class EndToEndTestCase(unittest.TestCase):
     """Base class to build end to end tests.
 
-    This class contains all necessary to build end to end test
-    cases for Trustable. It provides an OpenSearch server and a
+    This class contains all necessary to build end to end test cases
+    for GrimoireLab metrics. It provides an OpenSearch server and a
     GrimoireLab 2.x server and workers, along with its required
     MariaDB and Redis databases.
     """
@@ -117,7 +117,7 @@ class EndToEndTestCase(unittest.TestCase):
 
     def _preload_repositories(self):
         self.runner.invoke(
-            trustable_grimoirelab_score,
+            grimoirelab_metrics,
             [
                 "./data/archived_repos.spdx.xml",
                 "--grimoirelab-url",
