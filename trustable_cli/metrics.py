@@ -176,13 +176,15 @@ class GitEventsAnalyzer:
         regular_threshold = int(0.8 * self.total_commits)
         casual_threshold = int(0.95 * self.total_commits)
         acc_commits = 0
+        last_core_contribution = 0
 
         for _, contributions in self.contributors.most_common():
             acc_commits += contributions
 
-            if acc_commits <= regular_threshold:
+            if acc_commits <= regular_threshold or contributions > last_core_contribution:
+                last_core_contribution = contributions
                 core += 1
-            elif acc_commits <= casual_threshold:
+            elif acc_commits <= casual_threshold or contributions == last_core_contribution:
                 regular += 1
             else:
                 casual += 1
