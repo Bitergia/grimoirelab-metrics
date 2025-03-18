@@ -79,6 +79,14 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         self.analyzer.process_events(extra_events)
         self.assertEqual(self.analyzer.get_pony_factor(), 2)
 
+    def test_get_pony_factor_custom_threshold(self):
+        """Test the computation of the pony factor is correct with a custom threshold"""
+
+        analyzer = GitEventsAnalyzer(pony_threshold=0.8)
+        analyzer.process_events(self.events)
+
+        self.assertEqual(analyzer.get_pony_factor(), 2)
+
     def test_get_elephant_factor(self):
         """Test the computation of the elephant factor is correct"""
 
@@ -112,6 +120,14 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         ]
         self.analyzer.process_events(extra_events)
         self.assertEqual(self.analyzer.get_elephant_factor(), 2)
+
+    def test_get_elephant_factor_custom_threshold(self):
+        """Test the computation of the elephant factor is correct with a custom threshold"""
+
+        analyzer = GitEventsAnalyzer(elephant_threshold=0.8)
+        analyzer.process_events(self.events)
+
+        self.assertEqual(analyzer.get_elephant_factor(), 2)
 
     def test_file_type_metrics(self):
         """Test that file type metrics are calculated correctly"""
@@ -279,6 +295,21 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         self.analyzer.process_events(extra_events)
         categories = self.analyzer.get_developer_categories()
         self.assertDictEqual(categories, {"core": 4, "regular": 1, "casual": 0})
+
+    def test_get_developer_categories_custom_threshold(self):
+        """Test if the categories are calculated correctly with a custom threshold"""
+
+        analyzer = GitEventsAnalyzer(dev_categories_thresholds=(0.5, 0.9))
+        analyzer.process_events(self.events)
+
+        categories = analyzer.get_developer_categories()
+        self.assertDictEqual(categories, {"core": 1, "regular": 1, "casual": 1})
+
+        analyzer_2 = GitEventsAnalyzer(dev_categories_thresholds=(0.95, 0.99))
+        analyzer_2.process_events(self.events)
+
+        categories = analyzer_2.get_developer_categories()
+        self.assertDictEqual(categories, {"core": 2, "regular": 0, "casual": 1})
 
 
 if __name__ == "__main__":
