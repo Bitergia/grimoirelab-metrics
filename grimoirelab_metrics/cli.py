@@ -57,6 +57,9 @@ GIT_REPO_REGEX = r"((git|http(s)?)|(git@[\w\.]+))://?([\w\.@\:/\-~]+)(\.git)(/)?
     default="http://localhost:9200/",
 )
 @click.option("--opensearch-index", help="OpenSearch index", default="events")
+@click.option("--opensearch-user", type=str, help="OpenSearch user", default=None)
+@click.option("--opensearch-password", type=str, help="OpenSearch password", default=None)
+@click.option("--opensearch-ca-certs", type=str, help="OpenSearch CA certificate path (.pem file)", default=None)
 @click.option("--output", help="File where the scores will be written", type=click.File("w"), default=sys.stdout)
 @click.option(
     "--repository-timeout",
@@ -98,8 +101,11 @@ def grimoirelab_metrics(
     grimoirelab_password: str,
     opensearch_url: str,
     opensearch_index: str,
-    output: str,
-    repository_timeout: int,
+    opensearch_user: str | None = None,
+    opensearch_password: str | None = None,
+    opensearch_ca_certs: str | None = None,
+    output: typing.TextIO = sys.stdout,
+    repository_timeout: int = 3600,
     from_date: datetime.datetime | None = None,
     to_date: datetime.datetime | None = None,
     verify_certs: bool = False,
@@ -144,6 +150,9 @@ def grimoirelab_metrics(
             repositories=git_urls,
             opensearch_url=opensearch_url,
             opensearch_index=opensearch_index,
+            opensearch_user=opensearch_user,
+            opensearch_password=opensearch_password,
+            opensearch_ca_certs=opensearch_ca_certs,
             from_date=from_date,
             to_date=to_date,
             verify_certs=verify_certs,
@@ -223,6 +232,9 @@ def generate_metrics_when_ready(
     repositories: list[str],
     opensearch_url: str,
     opensearch_index: str,
+    opensearch_user: str | None = None,
+    opensearch_password: str | None = None,
+    opensearch_ca_certs: str | None = None,
     from_date: datetime.datetime | None = None,
     to_date: datetime.datetime | None = None,
     verify_certs: bool = False,
@@ -239,6 +251,9 @@ def generate_metrics_when_ready(
     :param repositories: List of repositories.
     :param opensearch_url: OpenSearch URL.
     :param opensearch_index: OpenSearch index.
+    :param opensearch_user: OpenSearch user.
+    :param opensearch_password: OpenSearch password.
+    :param opensearch_ca_certs: OpenSearch CA certificate.
     :param from_date: Start date for metrics.
     :param to_date: End date for metrics.
     :param verify_certs: Verify SSL/TLS certificates.
@@ -265,6 +280,9 @@ def generate_metrics_when_ready(
                     repository=repository,
                     opensearch_url=opensearch_url,
                     opensearch_index=opensearch_index,
+                    opensearch_user=opensearch_user,
+                    opensearch_password=opensearch_password,
+                    opensearch_ca_certs=opensearch_ca_certs,
                     from_date=from_date,
                     to_date=to_date,
                     verify_certs=verify_certs,

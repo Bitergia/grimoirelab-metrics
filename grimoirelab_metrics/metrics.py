@@ -25,8 +25,6 @@ import typing
 
 from collections import Counter
 
-import certifi
-
 from opensearchpy import OpenSearch, Search
 
 
@@ -249,6 +247,9 @@ def get_repository_metrics(
     repository: str,
     opensearch_url: str,
     opensearch_index: str,
+    opensearch_user: str = None,
+    opensearch_password: str = None,
+    opensearch_ca_certs: str = None,
     from_date: datetime.datetime = None,
     to_date: datetime.datetime = None,
     verify_certs: bool = True,
@@ -264,6 +265,9 @@ def get_repository_metrics(
     :param repository: Repository URI
     :param opensearch_url: URL of the OpenSearch instance
     :param opensearch_index: Name of the index where the data is stored
+    :param opensearch_user: Username to connect to OpenSearch, by default None
+    :param opensearch_password: Password to connect to OpenSearch, by default None
+    :param opensearch_ca_certs: Path to the CA certificate, by default None
     :param verify_certs: Boolean, verify SSL/TLS certificates, default True
     :param from_date: Start date, by default None
     :param to_date: End date, by default None
@@ -273,7 +277,13 @@ def get_repository_metrics(
     :param elephant_threshold: Threshold for the elephant factor
     :param dev_categories_thresholds: Threshold for the developer categories
     """
-    os_conn = connect_to_opensearch(opensearch_url, verify_certs=verify_certs)
+    os_conn = connect_to_opensearch(
+        url=opensearch_url,
+        username=opensearch_user,
+        password=opensearch_password,
+        ca_certs_path=opensearch_ca_certs,
+        verify_certs=verify_certs,
+    )
 
     metrics = {"metrics": {}}
 
@@ -341,6 +351,9 @@ def get_repository_events(
 
 def connect_to_opensearch(
     url: str,
+    username: str | None = None,
+    password: str | None = None,
+    ca_certs_path: str | None = None,
     verify_certs: bool = True,
     max_retries: int = 3,
 ) -> OpenSearch:
@@ -348,18 +361,26 @@ def connect_to_opensearch(
     Connect to an OpenSearch instance using the given parameters.
 
     :param url: URL of the OpenSearch instance
+    :param username: Username to connect to OpenSearch
+    :param password: Password to connect to OpenSearch
+    :param ca_certs_path: Path to the CA certificate
     :param verify_certs: Boolean, verify SSL/TLS certificates
     :param max_retries: Maximum number of retries in case of timeout
 
     :return: OpenSearch connection
     """
+    auth = None
+    if username and password:
+        auth = (username, password)
+
     os_conn = OpenSearch(
         hosts=[url],
+        http_auth=auth,
         http_compress=True,
         verify_certs=verify_certs,
         ssl_assert_hostname=False,
         ssl_show_warn=False,
-        ca_cert=certifi.where,
+        ca_certs=ca_certs_path,
         max_retries=max_retries,
         retry_on_timeout=True,
     )

@@ -54,8 +54,10 @@ it analyzed.
 grimoirelab-metrics spdx.xml \
   --grimoirelab-url http://localhost:8000 \
   --grimoirelab-user user --grimoirelab-password password \
-  --opensearch-url https://admin:admin@127.0.0.1:9200 \
+  --opensearch-url https://127.0.0.1:9200 \
   --opensearch-index events \
+  --opensearch-user 'admin' --opensearch-password 'admin' \
+  --verify --opensearch-ca-certs /path/to/ca.pem \
   --from-date 2024-01-01 --to-date 2025-01-01 \
   --repository-timeout 3600 \
   --code-file-pattern "\.py$|\.js$" \
