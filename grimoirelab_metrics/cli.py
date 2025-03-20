@@ -357,8 +357,8 @@ def schedule_repository(grimoirelab_client: GrimoireLabClient, uri: str, datasou
         "datasource_type": datasource,
         "datasource_category": category,
     }
-    res = grimoirelab_client.post("datasources/add_repository", json=data)
     try:
+        res = grimoirelab_client.post("datasources/add_repository", json=data)
         res.raise_for_status()
     except requests.HTTPError as e:
         if res.status_code == 405 and "already exists" in res.json()["error"]:
