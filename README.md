@@ -57,7 +57,7 @@ grimoirelab-metrics spdx.xml \
   --opensearch-url https://127.0.0.1:9200 \
   --opensearch-index events \
   --opensearch-user 'admin' --opensearch-password 'admin' \
-  --verify --opensearch-ca-certs /path/to/ca.pem \
+  --verify-certs --opensearch-ca-certs /path/to/ca.pem \
   --from-date 2024-01-01 --to-date 2025-01-01 \
   --repository-timeout 3600 \
   --code-file-pattern "\.py$|\.js$" \
