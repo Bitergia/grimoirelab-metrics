@@ -32,15 +32,17 @@ class GrimoireLabClient:
     :param url: GrimoireLab API URL.
     :param user: Username to use when authentication is required.
     :param password: Password to use when authentication is required.
+    :param verify_certs: Verify the server's SSL certificate.
     """
 
-    def __init__(self, url: str, user: str = None, password: str = None):
+    def __init__(self, url: str, user: str = None, password: str = None, verify_certs: bool = True):
         self.url = url
         self.user = user
         self.password = password
         self.session = None
         self._token = None
         self._refresh_token = None
+        self._verify_certs = verify_certs
 
     def connect(self):
         """Establish a connection to the server, and create a token"""
@@ -102,7 +104,7 @@ class GrimoireLabClient:
 
         for attempt in range(MAX_RETRIES):
             try:
-                response = self.session.request(method, url, *args, **kwargs)
+                response = self.session.request(method, url, *args, verify=self._verify_certs, **kwargs)
                 response.raise_for_status()
                 return response
             except requests.HTTPError as e:

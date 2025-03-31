@@ -131,7 +131,7 @@ def grimoirelab_metrics(
     logging.basicConfig(level=log_level, format="%(asctime)s - %(levelname)s - %(message)s")
 
     try:
-        grimoirelab_client = GrimoireLabClient(grimoirelab_url, grimoirelab_user, grimoirelab_password)
+        grimoirelab_client = GrimoireLabClient(grimoirelab_url, grimoirelab_user, grimoirelab_password, verify_certs)
         grimoirelab_client.connect()
 
         packages = get_sbom_packages(filename)
