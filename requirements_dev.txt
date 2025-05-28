@@ -1,1 +1,2 @@
 -e git+https://github.com/chaoss/grimoirelab-core.git/#egg=grimoirelab-core
+-e git+https://github.com/chaoss/grimoirelab-perceval.git/#egg=perceval

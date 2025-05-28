@@ -27,6 +27,7 @@ from collections import Counter
 
 from opensearchpy import OpenSearch, Search
 
+from grimoirelab_toolkit.datetime import str_to_datetime
 
 logging.getLogger("opensearch").setLevel(logging.WARNING)
 
@@ -69,6 +70,10 @@ class GitEventsAnalyzer:
         self.pony_threshold = pony_threshold
         self.elephant_threshold = elephant_threshold
         self.dev_categories_thresholds = dev_categories_thresholds
+        self.first_commit: str | None = None
+        self.last_commit: str | None = None
+        self.first_commit_date: datetime.datetime | None = None
+        self.last_commit_date: datetime.datetime | None = None
 
     def process_events(self, events: iter(dict[str, Any])):
         for event in events:
@@ -82,6 +87,7 @@ class GitEventsAnalyzer:
             self._update_companies(event_data)
             self._update_file_metrics(event_data)
             self._update_message_size_metrics(event_data)
+            self._update_first_and_last_commit(event_data)
 
     def get_commit_count(self):
         return self.total_commits
@@ -203,6 +209,23 @@ class GitEventsAnalyzer:
             "casual": casual,
         }
 
+    def get_analysis_metadata(self):
+        """Return metadata about the analysis."""
+
+        metadata = {
+            "first_commit": self.first_commit,
+            "last_commit": self.last_commit,
+            "first_commit_date": None,
+            "last_commit_date": None,
+        }
+
+        if self.first_commit_date:
+            metadata["first_commit_date"] = self.first_commit_date.isoformat()
+        if self.last_commit_date:
+            metadata["last_commit_date"] = self.last_commit_date.isoformat()
+
+        return metadata
+
     def _update_companies(self, event):
         try:
             author = event[AUTHOR_FIELD]
@@ -241,6 +264,24 @@ class GitEventsAnalyzer:
     def _update_message_size_metrics(self, event):
         message = event.get("message", "")
         self.messages_sizes.append(len(message))
+
+    def _update_first_and_last_commit(self, event):
+        """Update last commit and first commit metadata."""
+
+        commit = event.get("commit")
+        commit_date = event.get("CommitDate")
+        if not commit_date or not commit:
+            return
+
+        commit_date = str_to_datetime(commit_date)
+
+        if not self.first_commit or self.first_commit_date > commit_date:
+            self.first_commit = commit
+            self.first_commit_date = commit_date
+
+        if not self.last_commit or self.last_commit_date < commit_date:
+            self.last_commit = commit
+            self.last_commit_date = commit_date
 
 
 def get_repository_metrics(
@@ -320,6 +361,8 @@ def get_repository_metrics(
     for prefix, metrics_set in metrics_to_flatten.items():
         for name, value in metrics_set.items():
             metrics["metrics"][prefix + "_" + name] = value
+
+    metrics["metadata"] = analyzer.get_analysis_metadata()
 
     return metrics
 

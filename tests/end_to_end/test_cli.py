@@ -16,11 +16,19 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+import datetime
 import json
 import logging
 import unittest
 
-from grimoirelab_metrics.cli import grimoirelab_metrics
+from grimoirelab_metrics.cli import (
+    grimoirelab_metrics,
+    FILE_TYPE_CODE,
+    FILE_TYPE_BINARY,
+    DEFAULT_PONY_THRESHOLD,
+    DEFAULT_ELEPHANT_THRESHOLD,
+    DEFAULT_DEV_CATEGORIES_THRESHOLDS,
+)
 from end_to_end.base import EndToEndTestCase
 
 GRIMOIRELAB_URL = "http://localhost:8000"
@@ -31,6 +39,8 @@ class TestMetrics(EndToEndTestCase):
 
     def test_metrics(self):
         """Check whether the metrics are correctly calculated"""
+
+        started_after = datetime.datetime.now(tz=datetime.timezone.utc)
 
         with self.assertLogs(logging.getLogger()) as logger:
             result = self.runner.invoke(
@@ -54,6 +64,9 @@ class TestMetrics(EndToEndTestCase):
                 ],
             )
             self.assertEqual(result.exit_code, 0)
+
+            finished_before = datetime.datetime.now(tz=datetime.timezone.utc)
+
             # Check logs
             self.assertIn("INFO:root:Parsing file ./data/archived_repos.spdx.xml", logger.output)
             self.assertIn("INFO:root:Found 2 git repositories", logger.output)
@@ -72,7 +85,7 @@ class TestMetrics(EndToEndTestCase):
                 self.assertEqual(quickstart_metrics["total_contributors"], 25)
                 self.assertEqual(quickstart_metrics["pony_factor"], 2)
                 self.assertEqual(quickstart_metrics["elephant_factor"], 2)
-                self.assertEqual(quickstart_metrics["file_types_other"], 683)
+                self.assertEqual(quickstart_metrics["file_types_other"], 684)
                 self.assertEqual(quickstart_metrics["file_types_binary"], 0)
                 self.assertEqual(quickstart_metrics["file_types_code"], 479)
                 self.assertEqual(quickstart_metrics["commit_size_added_lines"], 53121)
@@ -87,6 +100,19 @@ class TestMetrics(EndToEndTestCase):
                 self.assertAlmostEqual(quickstart_metrics["commits_per_week"], 164 / (9132 / 7), delta=0.1)
                 self.assertAlmostEqual(quickstart_metrics["commits_per_month"], 164 / (9132 / 30), delta=0.1)
                 self.assertAlmostEqual(quickstart_metrics["commits_per_year"], 164 / (9132 / 365), delta=0.1)
+                # First and last commit metrics
+                self.assertEqual(
+                    metrics["packages"]["SPDXRef-angular"]["metadata"]["first_commit"], "da1ad445ea2b8d94649f132e9f51bb73ce163264"
+                )
+                self.assertEqual(
+                    metrics["packages"]["SPDXRef-angular"]["metadata"]["last_commit"], "abf848628cf02fd1899ccd7b09eb7b3ffa78aa38"
+                )
+                self.assertEqual(
+                    metrics["packages"]["SPDXRef-angular"]["metadata"]["first_commit_date"], "2015-03-05T00:05:13-08:00"
+                )
+                self.assertEqual(
+                    metrics["packages"]["SPDXRef-angular"]["metadata"]["last_commit_date"], "2017-10-31T16:09:38+01:00"
+                )
 
                 self.assertIn("SPDXRef-angular-seed", metrics["packages"])
                 self.assertEqual(
@@ -97,11 +123,11 @@ class TestMetrics(EndToEndTestCase):
                 self.assertEqual(angular_metrics["total_contributors"], 58)
                 self.assertEqual(angular_metrics["pony_factor"], 5)
                 self.assertEqual(angular_metrics["elephant_factor"], 2)
-                self.assertEqual(angular_metrics["file_types_other"], 534)
+                self.assertEqual(angular_metrics["file_types_other"], 535)
                 self.assertEqual(angular_metrics["file_types_binary"], 4)
-                self.assertEqual(angular_metrics["file_types_code"], 2129)
-                self.assertEqual(angular_metrics["commit_size_added_lines"], 218483)
-                self.assertEqual(angular_metrics["commit_size_removed_lines"], 245784)
+                self.assertEqual(angular_metrics["file_types_code"], 2130)
+                self.assertEqual(angular_metrics["commit_size_added_lines"], 240503)
+                self.assertEqual(angular_metrics["commit_size_removed_lines"], 255757)
                 self.assertEqual(angular_metrics["message_size_total"], 15488)
                 self.assertAlmostEqual(angular_metrics["message_size_mean"], 74.8212, delta=0.1)
                 self.assertEqual(angular_metrics["message_size_median"], 45)
@@ -112,11 +138,42 @@ class TestMetrics(EndToEndTestCase):
                 self.assertAlmostEqual(angular_metrics["commits_per_week"], 207 / (9132 / 7), delta=0.1)
                 self.assertAlmostEqual(angular_metrics["commits_per_month"], 207 / (9132 / 30), delta=0.1)
                 self.assertAlmostEqual(angular_metrics["commits_per_year"], 207 / (9132 / 365), delta=0.1)
+                # First and last commit metrics
+                self.assertEqual(
+                    metrics["packages"]["SPDXRef-angular-seed"]["metadata"]["first_commit"],
+                    "3f2cce012077bced39185888820034780278d2f7",
+                )
+                self.assertEqual(
+                    metrics["packages"]["SPDXRef-angular-seed"]["metadata"]["last_commit"],
+                    "6fb360fee97fd6c72123c1d693e7827ae03faced",
+                )
+                self.assertEqual(
+                    metrics["packages"]["SPDXRef-angular-seed"]["metadata"]["first_commit_date"], "2010-12-23T22:32:09-08:00"
+                )
+                self.assertEqual(
+                    metrics["packages"]["SPDXRef-angular-seed"]["metadata"]["last_commit_date"], "2019-10-15T19:52:39+00:00"
+                )
+
+                # Metadata from the whole run
+                self.assertGreater(datetime.datetime.fromisoformat(metrics["metadata"]["started_at"]), started_after)
+                self.assertLess(datetime.datetime.fromisoformat(metrics["metadata"]["started_at"]), finished_before)
+                self.assertLess(datetime.datetime.fromisoformat(metrics["metadata"]["finished_at"]), finished_before)
+                self.assertIn("version", metrics["metadata"])
+                self.assertEqual(metrics["metadata"]["configuration"]["from_date"], "2000-01-01T00:00:00")
+                self.assertEqual(metrics["metadata"]["configuration"]["to_date"], "2025-01-01T00:00:00")
+                self.assertEqual(metrics["metadata"]["configuration"]["code_file_pattern"], FILE_TYPE_CODE)
+                self.assertEqual(metrics["metadata"]["configuration"]["binary_file_pattern"], FILE_TYPE_BINARY)
+                self.assertEqual(metrics["metadata"]["configuration"]["pony_threshold"], DEFAULT_PONY_THRESHOLD)
+                self.assertEqual(metrics["metadata"]["configuration"]["elephant_threshold"], DEFAULT_ELEPHANT_THRESHOLD)
+                self.assertEqual(
+                    metrics["metadata"]["configuration"]["dev_categories_thresholds"], list(DEFAULT_DEV_CATEGORIES_THRESHOLDS)
+                )
 
     def test_from_date(self):
         """Check if it returns the number of commits of one repository from a particular date"""
 
         with self.assertLogs(logging.getLogger()) as logger:
+            started_after = datetime.datetime.now(tz=datetime.timezone.utc)
             result = self.runner.invoke(
                 grimoirelab_metrics,
                 [
@@ -137,6 +194,9 @@ class TestMetrics(EndToEndTestCase):
                     "--to-date=2025-01-01",
                 ],
             )
+
+            finished_before = datetime.datetime.now(tz=datetime.timezone.utc)
+
             self.assertEqual(result.exit_code, 0)
             # Check logs
             self.assertIn("INFO:root:Parsing file ./data/archived_repos.spdx.xml", logger.output)
@@ -156,7 +216,7 @@ class TestMetrics(EndToEndTestCase):
                 self.assertEqual(quickstart_metrics["total_contributors"], 8)
                 self.assertEqual(quickstart_metrics["pony_factor"], 2)
                 self.assertEqual(quickstart_metrics["elephant_factor"], 1)
-                self.assertEqual(quickstart_metrics["file_types_other"], 37)
+                self.assertEqual(quickstart_metrics["file_types_other"], 38)
                 self.assertEqual(quickstart_metrics["file_types_binary"], 0)
                 self.assertEqual(quickstart_metrics["file_types_code"], 17)
                 self.assertEqual(quickstart_metrics["commit_size_added_lines"], 269)
@@ -197,10 +257,26 @@ class TestMetrics(EndToEndTestCase):
                 self.assertAlmostEqual(angular_metrics["commits_per_month"], 11 / (2922 / 30), delta=0.1)
                 self.assertAlmostEqual(angular_metrics["commits_per_year"], 11 / (2922 / 365), delta=0.1)
 
+                # Metadata from the whole run
+                self.assertGreater(datetime.datetime.fromisoformat(metrics["metadata"]["started_at"]), started_after)
+                self.assertLess(datetime.datetime.fromisoformat(metrics["metadata"]["started_at"]), finished_before)
+                self.assertLess(datetime.datetime.fromisoformat(metrics["metadata"]["finished_at"]), finished_before)
+                self.assertIn("version", metrics["metadata"])
+                self.assertEqual(metrics["metadata"]["configuration"]["from_date"], "2017-01-01T00:00:00")
+                self.assertEqual(metrics["metadata"]["configuration"]["to_date"], "2025-01-01T00:00:00")
+                self.assertEqual(metrics["metadata"]["configuration"]["code_file_pattern"], FILE_TYPE_CODE)
+                self.assertEqual(metrics["metadata"]["configuration"]["binary_file_pattern"], FILE_TYPE_BINARY)
+                self.assertEqual(metrics["metadata"]["configuration"]["pony_threshold"], DEFAULT_PONY_THRESHOLD)
+                self.assertEqual(metrics["metadata"]["configuration"]["elephant_threshold"], DEFAULT_ELEPHANT_THRESHOLD)
+                self.assertEqual(
+                    metrics["metadata"]["configuration"]["dev_categories_thresholds"], list(DEFAULT_DEV_CATEGORIES_THRESHOLDS)
+                )
+
     def test_to_date(self):
         """Check if it returns the number of commits of one repository up to a particular date"""
 
         with self.assertLogs(logging.getLogger()) as logger:
+            started_after = datetime.datetime.now(tz=datetime.timezone.utc)
             result = self.runner.invoke(
                 grimoirelab_metrics,
                 [
@@ -221,6 +297,8 @@ class TestMetrics(EndToEndTestCase):
                     "--to-date=2017-01-01",
                 ],
             )
+            finished_before = datetime.datetime.now(tz=datetime.timezone.utc)
+
             self.assertEqual(result.exit_code, 0)
             # Check logs
             self.assertIn("INFO:root:Parsing file ./data/archived_repos.spdx.xml", logger.output)
@@ -265,11 +343,11 @@ class TestMetrics(EndToEndTestCase):
                 self.assertEqual(angular_metrics["total_contributors"], 56)
                 self.assertEqual(angular_metrics["pony_factor"], 5)
                 self.assertEqual(angular_metrics["elephant_factor"], 2)
-                self.assertEqual(angular_metrics["file_types_other"], 510)
+                self.assertEqual(angular_metrics["file_types_other"], 511)
                 self.assertEqual(angular_metrics["file_types_binary"], 4)
-                self.assertEqual(angular_metrics["file_types_code"], 2116)
-                self.assertEqual(angular_metrics["commit_size_added_lines"], 213634)
-                self.assertEqual(angular_metrics["commit_size_removed_lines"], 245635)
+                self.assertEqual(angular_metrics["file_types_code"], 2117)
+                self.assertEqual(angular_metrics["commit_size_added_lines"], 235654)
+                self.assertEqual(angular_metrics["commit_size_removed_lines"], 255608)
                 self.assertEqual(angular_metrics["message_size_total"], 14577)
                 self.assertAlmostEqual(angular_metrics["message_size_mean"], 74.37244897959184, delta=0.1)
                 self.assertEqual(angular_metrics["message_size_median"], 45)
@@ -280,6 +358,21 @@ class TestMetrics(EndToEndTestCase):
                 self.assertAlmostEqual(angular_metrics["commits_per_week"], 196 / (6210 / 7), delta=0.1)
                 self.assertAlmostEqual(angular_metrics["commits_per_month"], 196 / (6210 / 30), delta=0.1)
                 self.assertAlmostEqual(angular_metrics["commits_per_year"], 196 / (6210 / 365), delta=0.1)
+
+                # Metadata from the whole run
+                self.assertGreater(datetime.datetime.fromisoformat(metrics["metadata"]["started_at"]), started_after)
+                self.assertLess(datetime.datetime.fromisoformat(metrics["metadata"]["started_at"]), finished_before)
+                self.assertLess(datetime.datetime.fromisoformat(metrics["metadata"]["finished_at"]), finished_before)
+                self.assertIn("version", metrics["metadata"])
+                self.assertEqual(metrics["metadata"]["configuration"]["from_date"], "2000-01-01T00:00:00")
+                self.assertEqual(metrics["metadata"]["configuration"]["to_date"], "2017-01-01T00:00:00")
+                self.assertEqual(metrics["metadata"]["configuration"]["code_file_pattern"], FILE_TYPE_CODE)
+                self.assertEqual(metrics["metadata"]["configuration"]["binary_file_pattern"], FILE_TYPE_BINARY)
+                self.assertEqual(metrics["metadata"]["configuration"]["pony_threshold"], DEFAULT_PONY_THRESHOLD)
+                self.assertEqual(metrics["metadata"]["configuration"]["elephant_threshold"], DEFAULT_ELEPHANT_THRESHOLD)
+                self.assertEqual(
+                    metrics["metadata"]["configuration"]["dev_categories_thresholds"], list(DEFAULT_DEV_CATEGORIES_THRESHOLDS)
+                )
 
     def test_duplicate_repo(self):
         """Check if it ignores duplicated URLs"""
@@ -325,7 +418,7 @@ class TestMetrics(EndToEndTestCase):
                 self.assertEqual(quickstart_metrics["total_contributors"], 25)
                 self.assertEqual(quickstart_metrics["pony_factor"], 2)
                 self.assertEqual(quickstart_metrics["elephant_factor"], 2)
-                self.assertEqual(quickstart_metrics["file_types_other"], 683)
+                self.assertEqual(quickstart_metrics["file_types_other"], 684)
                 self.assertEqual(quickstart_metrics["file_types_binary"], 0)
                 self.assertEqual(quickstart_metrics["file_types_code"], 479)
                 self.assertEqual(quickstart_metrics["commit_size_added_lines"], 53121)
@@ -385,7 +478,7 @@ class TestMetrics(EndToEndTestCase):
                 self.assertEqual(quickstart_metrics["total_contributors"], 25)
                 self.assertEqual(quickstart_metrics["pony_factor"], 2)
                 self.assertEqual(quickstart_metrics["elephant_factor"], 2)
-                self.assertEqual(quickstart_metrics["file_types_other"], 683)
+                self.assertEqual(quickstart_metrics["file_types_other"], 684)
                 self.assertEqual(quickstart_metrics["file_types_binary"], 0)
                 self.assertEqual(quickstart_metrics["file_types_code"], 479)
                 self.assertEqual(quickstart_metrics["commit_size_added_lines"], 53121)

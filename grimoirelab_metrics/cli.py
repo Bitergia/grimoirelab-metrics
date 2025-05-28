@@ -29,17 +29,23 @@ import typing
 import click
 import requests
 
+from importlib.metadata import version
+
 from spdx_tools.spdx.model import SpdxNone, SpdxNoAssertion
 from spdx_tools.spdx.parser.error import SPDXParsingError
 from spdx_tools.spdx.parser.parse_anything import parse_file
 
 from grimoirelab_metrics.grimoirelab_client import GrimoireLabClient
-from grimoirelab_metrics.metrics import get_repository_metrics
+from grimoirelab_metrics.metrics import get_repository_metrics, FILE_TYPE_CODE, FILE_TYPE_BINARY
 
 if typing.TYPE_CHECKING:
     from typing import Any
 
 GIT_REPO_REGEX = r"((git|http(s)?)|(git@[\w\.]+))://?([\w\.@\:/\-~]+)(\.git)(/)?"
+
+DEFAULT_DEV_CATEGORIES_THRESHOLDS = (0.8, 0.95)
+DEFAULT_PONY_THRESHOLD = 0.5
+DEFAULT_ELEPHANT_THRESHOLD = 0.5
 
 
 @click.command()
@@ -92,7 +98,7 @@ GIT_REPO_REGEX = r"((git|http(s)?)|(git@[\w\.]+))://?([\w\.@\:/\-~]+)(\.git)(/)?
     type=(click.FloatRange(0, 1), click.FloatRange(0, 1)),
     show_default=True,
     help="Developer categories thresholds",
-    default=(0.8, 0.95),
+    default=DEFAULT_DEV_CATEGORIES_THRESHOLDS,
 )
 def grimoirelab_metrics(
     filename: str,
@@ -112,9 +118,9 @@ def grimoirelab_metrics(
     verbose: bool = False,
     code_file_pattern: str | None = None,
     binary_file_pattern: str | None = None,
-    pony_threshold: float = 0.5,
-    elephant_threshold: float = 0.5,
-    dev_categories_thresholds: tuple[float, float] = (0.8, 0.95),
+    pony_threshold: float = DEFAULT_PONY_THRESHOLD,
+    elephant_threshold: float = DEFAULT_ELEPHANT_THRESHOLD,
+    dev_categories_thresholds: tuple[float, float] = DEFAULT_DEV_CATEGORIES_THRESHOLDS,
 ) -> None:
     """Calculate metrics using GrimoireLab.
 
@@ -131,6 +137,7 @@ def grimoirelab_metrics(
     logging.basicConfig(level=log_level, format="%(asctime)s - %(levelname)s - %(message)s")
 
     try:
+        start_date = datetime.datetime.now(datetime.UTC)
         grimoirelab_client = GrimoireLabClient(grimoirelab_url, grimoirelab_user, grimoirelab_password, verify_certs)
         grimoirelab_client.connect()
 
@@ -172,6 +179,21 @@ def grimoirelab_metrics(
             else:
                 package_metrics["packages"][package] = {"metrics": None}
 
+        package_metrics["metadata"] = {
+            "version": version("grimoirelab-metrics"),
+            "started_at": start_date.isoformat(),
+            "finished_at": datetime.datetime.now(datetime.UTC).isoformat(),
+        }
+        package_metrics["metadata"]["configuration"] = {
+            "from_date": from_date.isoformat(),
+            "to_date": to_date.isoformat(),
+            "code_file_pattern": code_file_pattern if code_file_pattern else FILE_TYPE_CODE,
+            "binary_file_pattern": binary_file_pattern if binary_file_pattern else FILE_TYPE_BINARY,
+            "pony_threshold": pony_threshold,
+            "elephant_threshold": elephant_threshold,
+            "dev_categories_thresholds": dev_categories_thresholds,
+        }
+
         output.write(json.dumps(package_metrics, indent=4))
     except SPDXParsingError as e:
         logging.error(e.messages[0])
@@ -187,6 +209,7 @@ def get_repository(download_location: str) -> str | None:
         if git_regex:
             uri = f"https://{git_regex.group(5)}"
             return uri
+    return None
 
 
 def get_sbom_packages(file: str) -> dict[str, str]:

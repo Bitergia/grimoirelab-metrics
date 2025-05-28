@@ -311,6 +311,17 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         categories = analyzer_2.get_developer_categories()
         self.assertDictEqual(categories, {"core": 2, "regular": 0, "casual": 1})
 
+    def test_repository_metadata(self):
+        """Test if the repository metadata is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        metadata = self.analyzer.get_analysis_metadata()
+        self.assertEqual(metadata["first_commit"], "c82f679dea593bfb069b2ad83726bb90d99bee13")
+        self.assertEqual(metadata["last_commit"], "fd7d80fc8d33a97013119fe52170467c20ee8b37")
+        self.assertEqual(metadata["first_commit_date"], "2024-01-09T11:15:39+01:00")
+        self.assertEqual(metadata["last_commit_date"], "2024-04-05T16:45:24+02:00")
+
 
 if __name__ == "__main__":
     unittest.main()
