@@ -52,14 +52,28 @@ FILE_TYPE_BINARY = (
 class GitEventsAnalyzer:
     def __init__(
         self,
+        from_date: datetime.datetime | None = None,
+        to_date: datetime.datetime | None = None,
         code_file_pattern: str | None = None,
         binary_file_pattern: str | None = None,
         pony_threshold: float = 0.5,
         elephant_threshold: float = 0.5,
         dev_categories_thresholds: tuple[float, float] = (0.8, 0.95),
     ):
+        # Define the default dates if not provided
+        today = datetime.datetime.now(datetime.UTC)
+        if from_date:
+            self.from_date = from_date.astimezone(datetime.UTC)
+        else:
+            self.from_date = today - datetime.timedelta(days=365)
+        if to_date:
+            self.to_date = to_date.astimezone(datetime.UTC)
+        else:
+            self.to_date = datetime.datetime.now(datetime.timezone.utc)
+
         self.total_commits: int = 0
         self.contributors: Counter = Counter()
+        self.contributors_growth: dict[str, set] = {"first_half": set(), "second_half": set()}
         self.companies: Counter = Counter()
         self.companies_by_period: dict[str, set] = {"30d": set(), "90d": set(), "180d": set()}
         self.file_types: dict = {"code": 0, "binary": 0, "other": 0}
@@ -75,6 +89,7 @@ class GitEventsAnalyzer:
         self.last_commit: str | None = None
         self.first_commit_date: datetime.datetime | None = None
         self.last_commit_date: datetime.datetime | None = None
+        self._half_period = self.from_date + (self.to_date - self.from_date) / 2
 
     def process_events(self, events: iter(dict[str, Any])):
         for event in events:
@@ -84,7 +99,7 @@ class GitEventsAnalyzer:
             event_data = event.get("data")
 
             self.total_commits += 1
-            self.contributors[event_data[AUTHOR_FIELD]] += 1
+            self._update_contributors(event_data)
             self._update_companies(event_data)
             self._update_file_metrics(event_data)
             self._update_message_size_metrics(event_data)
@@ -222,6 +237,22 @@ class GitEventsAnalyzer:
             "180d": len(self.companies_by_period["180d"]),
         }
 
+    def get_growth_of_contributors(self):
+        """Return the growth of contributors by period."""
+
+        first_half = len(self.contributors_growth["first_half"])
+        second_half = len(self.contributors_growth["second_half"])
+
+        if first_half == 0:
+            if second_half == 0:
+                return 0.0
+            else:
+                return 1.0
+
+        growth = second_half / first_half
+
+        return growth
+
     def get_analysis_metadata(self):
         """Return metadata about the analysis."""
 
@@ -239,6 +270,23 @@ class GitEventsAnalyzer:
 
         return metadata
 
+    def _update_contributors(self, event_data):
+        author = event_data[AUTHOR_FIELD]
+
+        self.contributors[author] += 1
+
+        # Update contributor growth
+        try:
+            commit_date = event_data.get("CommitDate")
+            commit_date = str_to_datetime(commit_date)
+        except (ValueError, TypeError, InvalidDateError):
+            commit_date = None
+        if commit_date and self._half_period:
+            if commit_date < self._half_period:
+                self.contributors_growth["first_half"].add(author)
+            else:
+                self.contributors_growth["second_half"].add(author)
+
     def _update_companies(self, event_data):
         try:
             author = event_data[AUTHOR_FIELD]
@@ -250,9 +298,8 @@ class GitEventsAnalyzer:
 
         # Update companies by period
         try:
-            today = datetime.datetime.now(datetime.timezone.utc)
             commit_date = str_to_datetime(event_data.get("CommitDate"))
-            days_interval = (today - commit_date).days
+            days_interval = (self.to_date - commit_date).days
         except (ValueError, TypeError, InvalidDateError):
             pass
         else:
@@ -360,6 +407,8 @@ def get_repository_metrics(
     events = get_repository_events(os_conn, opensearch_index, repository, from_date, to_date)
 
     analyzer = GitEventsAnalyzer(
+        from_date=from_date,
+        to_date=to_date,
         code_file_pattern=code_file_pattern,
         binary_file_pattern=binary_file_pattern,
         pony_threshold=pony_threshold,
@@ -373,6 +422,7 @@ def get_repository_metrics(
     metrics["metrics"]["total_organizations"] = analyzer.get_organization_count()
     metrics["metrics"]["pony_factor"] = analyzer.get_pony_factor()
     metrics["metrics"]["elephant_factor"] = analyzer.get_elephant_factor()
+    metrics["metrics"]["contributor_growth"] = analyzer.get_growth_of_contributors()
 
     if from_date and to_date:
         days = (to_date - from_date).days

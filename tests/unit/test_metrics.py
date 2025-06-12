@@ -375,6 +375,40 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         self.assertEqual(organizations_period["90d"], 2)
         self.assertEqual(organizations_period["180d"], 2)
 
+    def test_growth_of_contributors(self):
+        """Test if the growth of contributors is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        growth = self.analyzer.get_growth_of_contributors()
+        self.assertEqual(growth, 0.0)
+
+        # Add events from new contributors in the last days
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=15)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 2 <author2@example_new_2.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=60)).isoformat(),
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        growth = self.analyzer.get_growth_of_contributors()
+        self.assertAlmostEqual(growth, 0.66, delta=0.01)
+
 
 if __name__ == "__main__":
     unittest.main()
