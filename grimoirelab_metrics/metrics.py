@@ -74,6 +74,7 @@ class GitEventsAnalyzer:
         self.total_commits: int = 0
         self.contributors: Counter = Counter()
         self.contributors_growth: dict[str, set] = {"first_half": set(), "second_half": set()}
+        self.contributors_by_period: dict[str, set] = {"30d": set(), "90d": set(), "180d": set()}
         self.companies: Counter = Counter()
         self.companies_by_period: dict[str, set] = {"30d": set(), "90d": set(), "180d": set()}
         self.file_types: dict = {"code": 0, "binary": 0, "other": 0}
@@ -237,6 +238,15 @@ class GitEventsAnalyzer:
             "180d": len(self.companies_by_period["180d"]),
         }
 
+    def get_contributors_count_by_period(self):
+        """Return the number of contributors by period."""
+
+        return {
+            "30d": len(self.contributors_by_period["30d"]),
+            "90d": len(self.contributors_by_period["90d"]),
+            "180d": len(self.contributors_by_period["180d"]),
+        }
+
     def get_growth_of_contributors(self):
         """Return the growth of contributors by period."""
 
@@ -281,11 +291,26 @@ class GitEventsAnalyzer:
             commit_date = str_to_datetime(commit_date)
         except (ValueError, TypeError, InvalidDateError):
             commit_date = None
+
         if commit_date and self._half_period:
             if commit_date < self._half_period:
                 self.contributors_growth["first_half"].add(author)
             else:
                 self.contributors_growth["second_half"].add(author)
+
+        # Update contributors by period
+        try:
+            commit_date = str_to_datetime(event_data.get("CommitDate"))
+            days_interval = (self.to_date - commit_date).days
+        except (ValueError, TypeError, InvalidDateError):
+            pass
+        else:
+            if days_interval <= 30:
+                self.contributors_by_period["30d"].add(author)
+            if days_interval <= 90:
+                self.contributors_by_period["90d"].add(author)
+            if days_interval <= 180:
+                self.contributors_by_period["180d"].add(author)
 
     def _update_companies(self, event_data):
         try:
@@ -437,6 +462,7 @@ def get_repository_metrics(
         "developer_categories": analyzer.get_developer_categories(),
         "commits_per": analyzer.get_commit_frequency_metrics(days),
         "organizations_count": analyzer.get_organizations_count_by_period(),
+        "contributors_count": analyzer.get_contributors_count_by_period(),
     }
 
     for prefix, metrics_set in metrics_to_flatten.items():

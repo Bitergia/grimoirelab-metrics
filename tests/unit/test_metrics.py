@@ -375,6 +375,44 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         self.assertEqual(organizations_period["90d"], 2)
         self.assertEqual(organizations_period["180d"], 2)
 
+    def test_contributor_count_by_period(self):
+        """Test if the contributor counts by period (30d, 90d, 180d) is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        contributors_period = self.analyzer.get_contributors_count_by_period()
+        self.assertEqual(contributors_period["30d"], 0)
+        self.assertEqual(contributors_period["90d"], 0)
+        self.assertEqual(contributors_period["180d"], 0)
+
+        # Add events from new contributors in the last days
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=35)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 2 <author2@example_new_2.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=60)).isoformat(),
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        contributors_period = self.analyzer.get_contributors_count_by_period()
+        self.assertEqual(contributors_period["30d"], 0)
+        self.assertEqual(contributors_period["90d"], 2)
+        self.assertEqual(contributors_period["180d"], 2)
+
     def test_growth_of_contributors(self):
         """Test if the growth of contributors is calculated correctly"""
 
