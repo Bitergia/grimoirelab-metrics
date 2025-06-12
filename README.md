@@ -131,6 +131,23 @@ actively made contributions to an open source project within the last 90 days.
 Contributions are focused on Git commits, and the organization
 is determined by the email address of the commit author.
 
+
+### Contributor Growth Rate
+
+This metric measures the growth rate of active contributors, defined as the
+number of people sending one or more code contributions (in this case,
+Git commits) in a given period.
+
+To calculate it, the period is split into two halves, and the number of active
+contributors in each half is compared. The growth rate is the difference
+between the second half and the first half, divided by the number of active
+contributors in the first half.
+
+```math
+GrowthRate (t_1, t_2) = \frac{C_a(t_2) - C_a(t_1)}{C_a(t_1)},
+```
+
+
 ### Other metrics
 
 - Number of commits per repository
