@@ -481,5 +481,41 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         active_branches = self.analyzer.get_active_branch_count()
         self.assertEqual(active_branches, 2)
 
+    def test_found_files(self):
+        """Test if license and adopters files are found correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        found_files = self.analyzer.get_found_files()
+        self.assertTrue(found_files["license"])
+        self.assertFalse(found_files["adopters"])
+
+        # Add and event with an ADOPTERS file
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "commit": "abcdef1234567890abcdef1234567890abcdef12",
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Add ADOPTERS file",
+                    "files": [
+                        {
+                            "modes": ["100644", "100644"],
+                            "indexes": ["06ee9fa", "f20580a"],
+                            "action": "M",
+                            "file": "ADOPTERS.txt",
+                            "added": "18",
+                            "removed": "3",
+                        },
+                    ],
+                },
+            }
+        ]
+        self.analyzer.process_events(extra_events)
+        found_files = self.analyzer.get_found_files()
+        self.assertTrue(found_files["license"])
+        self.assertTrue(found_files["adopters"])
+
+
 if __name__ == "__main__":
     unittest.main()

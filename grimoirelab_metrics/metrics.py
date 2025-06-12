@@ -92,6 +92,7 @@ class GitEventsAnalyzer:
         self.last_commit_date: datetime.datetime | None = None
         self.active_branches: int = 0
         self._half_period = self.from_date + (self.to_date - self.from_date) / 2
+        self.found_files: dict[str, bool] = {"license": False, "adopters": False}
 
     def process_events(self, events: iter(dict[str, Any])):
         for event in events:
@@ -270,6 +271,11 @@ class GitEventsAnalyzer:
 
         return self.active_branches
 
+    def get_found_files(self):
+        """Return the files found in the repository."""
+
+        return self.found_files
+
     def get_analysis_metadata(self):
         """Return metadata about the analysis."""
 
@@ -349,6 +355,7 @@ class GitEventsAnalyzer:
         for file in event["files"]:
             if not file["file"]:
                 continue
+
             # File type metrics
             if self.re_code_pattern.search(file["file"]):
                 self.file_types["code"] += 1
@@ -368,6 +375,12 @@ class GitEventsAnalyzer:
                     self.removed_lines += int(file["removed"])
                 except ValueError:
                     pass
+
+            # LICENSE and ADOPTERS files
+            if file["file"] in ("LICENSE", "LICENSE.txt", "LICENSE.md"):
+                self.found_files["license"] = True
+            elif file["file"] in ("ADOPTERS", "ADOPTERS.md", "ADOPTERS.txt"):
+                self.found_files["adopters"] = True
 
     def _update_message_size_metrics(self, event):
         message = event.get("message", "")
@@ -478,6 +491,7 @@ def get_repository_metrics(
         "commits_per": analyzer.get_commit_frequency_metrics(days),
         "organizations_count": analyzer.get_organizations_count_by_period(),
         "contributors_count": analyzer.get_contributors_count_by_period(),
+        "file_found": analyzer.get_found_files(),
     }
 
     for prefix, metrics_set in metrics_to_flatten.items():
