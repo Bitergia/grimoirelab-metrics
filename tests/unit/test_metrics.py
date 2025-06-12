@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-
+import datetime
 import json
 import unittest
 
@@ -321,6 +321,40 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         self.assertEqual(metadata["last_commit"], "fd7d80fc8d33a97013119fe52170467c20ee8b37")
         self.assertEqual(metadata["first_commit_date"], "2024-01-09T11:15:39+01:00")
         self.assertEqual(metadata["last_commit_date"], "2024-04-05T16:45:24+02:00")
+
+    def test_get_recent_organizations(self):
+        """Test if the recent organizations are calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        recent_organizations = self.analyzer.get_recent_organizations()
+        self.assertEqual(recent_organizations, 0)
+
+        # Add events from a new organization in the last 30 days and 90 days
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=15)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 2 <author2@example_new_2.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=60)).isoformat(),
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        recent_organizations = self.analyzer.get_recent_organizations()
+        self.assertEqual(recent_organizations, 2)
 
 
 if __name__ == "__main__":

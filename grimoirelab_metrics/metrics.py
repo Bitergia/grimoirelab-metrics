@@ -27,7 +27,7 @@ from collections import Counter
 
 from opensearchpy import OpenSearch, Search
 
-from grimoirelab_toolkit.datetime import str_to_datetime
+from grimoirelab_toolkit.datetime import str_to_datetime, InvalidDateError
 
 logging.getLogger("opensearch").setLevel(logging.WARNING)
 
@@ -60,7 +60,8 @@ class GitEventsAnalyzer:
     ):
         self.total_commits: int = 0
         self.contributors: Counter = Counter()
-        self.companies: Counter = Counter()
+        self.organizations: Counter = Counter()
+        self.recent_organizations: set = set()
         self.file_types: dict = {"code": 0, "binary": 0, "other": 0}
         self.added_lines: int = 0
         self.removed_lines: int = 0
@@ -84,7 +85,7 @@ class GitEventsAnalyzer:
 
             self.total_commits += 1
             self.contributors[event_data[AUTHOR_FIELD]] += 1
-            self._update_companies(event_data)
+            self._update_organizations(event_data)
             self._update_file_metrics(event_data)
             self._update_message_size_metrics(event_data)
             self._update_first_and_last_commit(event_data)
@@ -113,15 +114,15 @@ class GitEventsAnalyzer:
         return pony_factor
 
     def get_elephant_factor(self):
-        """Number of companies producing up to 50% of the total number of code contributions"""
+        """Number of organizations producing up to 50% of the total number of code contributions"""
 
         partial_contributions = 0
         elephant_factor = 0
 
-        if len(self.companies) == 0:
+        if len(self.organizations) == 0:
             return 0
 
-        for _, contributions in self.companies.most_common():
+        for _, contributions in self.organizations.most_common():
             partial_contributions += contributions
             elephant_factor += 1
             if partial_contributions / self.total_commits > self.elephant_threshold:
@@ -209,6 +210,11 @@ class GitEventsAnalyzer:
             "casual": casual,
         }
 
+    def get_recent_organizations(self):
+        """Return the number of recent organizations."""
+
+        return len(self.recent_organizations)
+
     def get_analysis_metadata(self):
         """Return metadata about the analysis."""
 
@@ -226,13 +232,25 @@ class GitEventsAnalyzer:
 
         return metadata
 
-    def _update_companies(self, event):
+    def _update_organizations(self, event_data):
         try:
-            author = event[AUTHOR_FIELD]
+            author = event_data[AUTHOR_FIELD]
             company = author.split("@")[1][:-1]
-            self.companies[company] += 1
         except (IndexError, KeyError):
+            return
+
+        self.organizations[company] += 1
+
+        # Update organizations by period
+        try:
+            today = datetime.datetime.now(datetime.timezone.utc)
+            commit_date = str_to_datetime(event_data.get("CommitDate"))
+            days_interval = (today - commit_date).days
+        except (ValueError, TypeError, InvalidDateError):
             pass
+        else:
+            if days_interval <= 90:
+                self.recent_organizations.add(company)
 
     def _update_file_metrics(self, event):
         if "files" not in event:
@@ -343,6 +361,7 @@ def get_repository_metrics(
     metrics["metrics"]["total_contributors"] = analyzer.get_contributor_count()
     metrics["metrics"]["pony_factor"] = analyzer.get_pony_factor()
     metrics["metrics"]["elephant_factor"] = analyzer.get_elephant_factor()
+    metrics["metrics"]["recent_organizations"] = analyzer.get_recent_organizations()
 
     if from_date and to_date:
         days = (to_date - from_date).days
