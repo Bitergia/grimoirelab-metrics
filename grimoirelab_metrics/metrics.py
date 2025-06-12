@@ -27,7 +27,7 @@ from collections import Counter
 
 from opensearchpy import OpenSearch, Search
 
-from grimoirelab_toolkit.datetime import str_to_datetime
+from grimoirelab_toolkit.datetime import str_to_datetime, InvalidDateError
 
 logging.getLogger("opensearch").setLevel(logging.WARNING)
 
@@ -52,15 +52,31 @@ FILE_TYPE_BINARY = (
 class GitEventsAnalyzer:
     def __init__(
         self,
+        from_date: datetime.datetime | None = None,
+        to_date: datetime.datetime | None = None,
         code_file_pattern: str | None = None,
         binary_file_pattern: str | None = None,
         pony_threshold: float = 0.5,
         elephant_threshold: float = 0.5,
         dev_categories_thresholds: tuple[float, float] = (0.8, 0.95),
     ):
+        # Define the default dates if not provided
+        today = datetime.datetime.now(datetime.UTC)
+        if from_date:
+            self.from_date = from_date.astimezone(datetime.UTC)
+        else:
+            self.from_date = today - datetime.timedelta(days=365)
+        if to_date:
+            self.to_date = to_date.astimezone(datetime.UTC)
+        else:
+            self.to_date = datetime.datetime.now(datetime.timezone.utc)
+
         self.total_commits: int = 0
         self.contributors: Counter = Counter()
+        self.contributors_growth: dict[str, set] = {"first_half": set(), "second_half": set()}
+        self.contributors_by_period: dict[str, set] = {"30d": set(), "90d": set(), "180d": set()}
         self.companies: Counter = Counter()
+        self.companies_by_period: dict[str, set] = {"30d": set(), "90d": set(), "180d": set()}
         self.file_types: dict = {"code": 0, "binary": 0, "other": 0}
         self.added_lines: int = 0
         self.removed_lines: int = 0
@@ -74,6 +90,9 @@ class GitEventsAnalyzer:
         self.last_commit: str | None = None
         self.first_commit_date: datetime.datetime | None = None
         self.last_commit_date: datetime.datetime | None = None
+        self.active_branches: int = 0
+        self._half_period = self.from_date + (self.to_date - self.from_date) / 2
+        self.found_files: dict[str, bool] = {"license": False, "adopters": False}
 
     def process_events(self, events: iter(dict[str, Any])):
         for event in events:
@@ -83,7 +102,8 @@ class GitEventsAnalyzer:
             event_data = event.get("data")
 
             self.total_commits += 1
-            self.contributors[event_data[AUTHOR_FIELD]] += 1
+            self._update_branch_number(event_data)
+            self._update_contributors(event_data)
             self._update_companies(event_data)
             self._update_file_metrics(event_data)
             self._update_message_size_metrics(event_data)
@@ -94,6 +114,9 @@ class GitEventsAnalyzer:
 
     def get_contributor_count(self):
         return len(self.contributors)
+
+    def get_organization_count(self):
+        return len(self.companies)
 
     def get_pony_factor(self):
         """Number of individuals producing up to 50% of the total number of code contributions"""
@@ -209,6 +232,50 @@ class GitEventsAnalyzer:
             "casual": casual,
         }
 
+    def get_organizations_count_by_period(self):
+        """Return the number of organizations by period."""
+
+        return {
+            "30d": len(self.companies_by_period["30d"]),
+            "90d": len(self.companies_by_period["90d"]),
+            "180d": len(self.companies_by_period["180d"]),
+        }
+
+    def get_contributors_count_by_period(self):
+        """Return the number of contributors by period."""
+
+        return {
+            "30d": len(self.contributors_by_period["30d"]),
+            "90d": len(self.contributors_by_period["90d"]),
+            "180d": len(self.contributors_by_period["180d"]),
+        }
+
+    def get_growth_of_contributors(self):
+        """Return the growth of contributors by period."""
+
+        first_half = len(self.contributors_growth["first_half"])
+        second_half = len(self.contributors_growth["second_half"])
+
+        if first_half == 0:
+            if second_half == 0:
+                return 0.0
+            else:
+                return 1.0
+
+        growth = second_half / first_half
+
+        return growth
+
+    def get_active_branch_count(self):
+        """Return the number of active branches."""
+
+        return self.active_branches
+
+    def get_found_files(self):
+        """Return the files found in the repository."""
+
+        return self.found_files
+
     def get_analysis_metadata(self):
         """Return metadata about the analysis."""
 
@@ -226,13 +293,70 @@ class GitEventsAnalyzer:
 
         return metadata
 
-    def _update_companies(self, event):
+    def get_days_since_last_commit(self):
+        """Return the number of days since the last commit."""
+
+        if not self.last_commit_date:
+            return None
+
+        days_since_last_commit = (self.to_date - self.last_commit_date).days
+
+        return days_since_last_commit
+
+    def _update_contributors(self, event_data):
+        author = event_data[AUTHOR_FIELD]
+
+        self.contributors[author] += 1
+
+        # Update contributor growth
         try:
-            author = event[AUTHOR_FIELD]
-            company = author.split("@")[1][:-1]
-            self.companies[company] += 1
-        except (IndexError, KeyError):
+            commit_date = event_data.get("CommitDate")
+            commit_date = str_to_datetime(commit_date)
+        except (ValueError, TypeError, InvalidDateError):
+            commit_date = None
+
+        if commit_date and self._half_period:
+            if commit_date < self._half_period:
+                self.contributors_growth["first_half"].add(author)
+            else:
+                self.contributors_growth["second_half"].add(author)
+
+        # Update contributors by period
+        try:
+            commit_date = str_to_datetime(event_data.get("CommitDate"))
+            days_interval = (self.to_date - commit_date).days
+        except (ValueError, TypeError, InvalidDateError):
             pass
+        else:
+            if days_interval <= 30:
+                self.contributors_by_period["30d"].add(author)
+            if days_interval <= 90:
+                self.contributors_by_period["90d"].add(author)
+            if days_interval <= 180:
+                self.contributors_by_period["180d"].add(author)
+
+    def _update_companies(self, event_data):
+        try:
+            author = event_data[AUTHOR_FIELD]
+            company = author.split("@")[1][:-1]
+        except (IndexError, KeyError):
+            return
+
+        self.companies[company] += 1
+
+        # Update companies by period
+        try:
+            commit_date = str_to_datetime(event_data.get("CommitDate"))
+            days_interval = (self.to_date - commit_date).days
+        except (ValueError, TypeError, InvalidDateError):
+            pass
+        else:
+            if days_interval <= 30:
+                self.companies_by_period["30d"].add(company)
+            if days_interval <= 90:
+                self.companies_by_period["90d"].add(company)
+            if days_interval <= 180:
+                self.companies_by_period["180d"].add(company)
 
     def _update_file_metrics(self, event):
         if "files" not in event:
@@ -241,6 +365,7 @@ class GitEventsAnalyzer:
         for file in event["files"]:
             if not file["file"]:
                 continue
+
             # File type metrics
             if self.re_code_pattern.search(file["file"]):
                 self.file_types["code"] += 1
@@ -260,6 +385,12 @@ class GitEventsAnalyzer:
                     self.removed_lines += int(file["removed"])
                 except ValueError:
                     pass
+
+            # LICENSE and ADOPTERS files
+            if file["file"] in ("LICENSE", "LICENSE.txt", "LICENSE.md"):
+                self.found_files["license"] = True
+            elif file["file"] in ("ADOPTERS", "ADOPTERS.md", "ADOPTERS.txt"):
+                self.found_files["adopters"] = True
 
     def _update_message_size_metrics(self, event):
         message = event.get("message", "")
@@ -282,6 +413,13 @@ class GitEventsAnalyzer:
         if not self.last_commit or self.last_commit_date < commit_date:
             self.last_commit = commit
             self.last_commit_date = commit_date
+
+    def _update_branch_number(self, event_data):
+        """By identifying commits without parent commits, we can determine the number of branches."""
+
+        parents = event_data.get("parents", None)
+        if isinstance(parents, list) and len(parents) == 0:
+            self.active_branches += 1
 
 
 def get_repository_metrics(
@@ -331,6 +469,8 @@ def get_repository_metrics(
     events = get_repository_events(os_conn, opensearch_index, repository, from_date, to_date)
 
     analyzer = GitEventsAnalyzer(
+        from_date=from_date,
+        to_date=to_date,
         code_file_pattern=code_file_pattern,
         binary_file_pattern=binary_file_pattern,
         pony_threshold=pony_threshold,
@@ -341,8 +481,12 @@ def get_repository_metrics(
 
     metrics["metrics"]["total_commits"] = analyzer.get_commit_count()
     metrics["metrics"]["total_contributors"] = analyzer.get_contributor_count()
+    metrics["metrics"]["total_organizations"] = analyzer.get_organization_count()
     metrics["metrics"]["pony_factor"] = analyzer.get_pony_factor()
     metrics["metrics"]["elephant_factor"] = analyzer.get_elephant_factor()
+    metrics["metrics"]["contributor_growth"] = analyzer.get_growth_of_contributors()
+    metrics["metrics"]["active_branches"] = analyzer.get_active_branch_count()
+    metrics["metrics"]["days_since_last_commit"] = analyzer.get_days_since_last_commit()
 
     if from_date and to_date:
         days = (to_date - from_date).days
@@ -356,6 +500,9 @@ def get_repository_metrics(
         "message_size": analyzer.get_message_size_metrics(),
         "developer_categories": analyzer.get_developer_categories(),
         "commits_per": analyzer.get_commit_frequency_metrics(days),
+        "organizations_count": analyzer.get_organizations_count_by_period(),
+        "contributors_count": analyzer.get_contributors_count_by_period(),
+        "file_found": analyzer.get_found_files(),
     }
 
     for prefix, metrics_set in metrics_to_flatten.items():
