@@ -96,6 +96,9 @@ class GitEventsAnalyzer:
     def get_contributor_count(self):
         return len(self.contributors)
 
+    def get_organization_count(self):
+        return len(self.companies)
+
     def get_pony_factor(self):
         """Number of individuals producing up to 50% of the total number of code contributions"""
 
@@ -367,6 +370,7 @@ def get_repository_metrics(
 
     metrics["metrics"]["total_commits"] = analyzer.get_commit_count()
     metrics["metrics"]["total_contributors"] = analyzer.get_contributor_count()
+    metrics["metrics"]["total_organizations"] = analyzer.get_organization_count()
     metrics["metrics"]["pony_factor"] = analyzer.get_pony_factor()
     metrics["metrics"]["elephant_factor"] = analyzer.get_elephant_factor()
 
