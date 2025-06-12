@@ -53,6 +53,21 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         self.analyzer.process_events(extra_events)
         self.assertEqual(self.analyzer.get_contributor_count(), 4)
 
+    def test_organization_count(self):
+        """Test that the organization count is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+        self.assertEqual(self.analyzer.get_organization_count(), 2)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {"Author": "Author 1 <author1@example3.com>", "message": "Another commit"},
+            }
+        ]
+        self.analyzer.process_events(extra_events)
+        self.assertEqual(self.analyzer.get_organization_count(), 3)
+
     def test_get_pony_factor(self):
         """Test the computation of the pony factor is correct"""
 

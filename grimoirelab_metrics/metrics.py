@@ -96,6 +96,9 @@ class GitEventsAnalyzer:
     def get_contributor_count(self):
         return len(self.contributors)
 
+    def get_organization_count(self):
+        return len(self.organizations)
+
     def get_pony_factor(self):
         """Number of individuals producing up to 50% of the total number of code contributions"""
 
@@ -235,11 +238,11 @@ class GitEventsAnalyzer:
     def _update_organizations(self, event_data):
         try:
             author = event_data[AUTHOR_FIELD]
-            company = author.split("@")[1][:-1]
+            organization = author.split("@")[1][:-1]
         except (IndexError, KeyError):
             return
 
-        self.organizations[company] += 1
+        self.organizations[organization] += 1
 
         # Update organizations by period
         try:
@@ -250,7 +253,7 @@ class GitEventsAnalyzer:
             pass
         else:
             if days_interval <= 90:
-                self.recent_organizations.add(company)
+                self.recent_organizations.add(organization)
 
     def _update_file_metrics(self, event):
         if "files" not in event:
@@ -359,6 +362,7 @@ def get_repository_metrics(
 
     metrics["metrics"]["total_commits"] = analyzer.get_commit_count()
     metrics["metrics"]["total_contributors"] = analyzer.get_contributor_count()
+    metrics["metrics"]["total_organizations"] = analyzer.get_organization_count()
     metrics["metrics"]["pony_factor"] = analyzer.get_pony_factor()
     metrics["metrics"]["elephant_factor"] = analyzer.get_elephant_factor()
     metrics["metrics"]["recent_organizations"] = analyzer.get_recent_organizations()
