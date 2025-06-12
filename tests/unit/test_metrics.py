@@ -371,6 +371,40 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         recent_organizations = self.analyzer.get_recent_organizations()
         self.assertEqual(recent_organizations, 2)
 
+    def test_recent_contributors(self):
+        """Test if the recent contributors are calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        recent_contributors = self.analyzer.get_recent_contributors()
+        self.assertEqual(recent_contributors, 0)
+
+        # Add events from new contributors in the last days
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=35)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 2 <author2@example_new_2.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=60)).isoformat(),
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        recent_contributors = self.analyzer.get_recent_contributors()
+        self.assertEqual(recent_contributors, 2)
+
     def test_growth_rate_of_contributors(self):
         """Test if the growth rate of contributors is calculated correctly"""
 

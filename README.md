@@ -132,6 +132,12 @@ Contributions are focused on Git commits, and the organization
 is determined by the email address of the commit author.
 
 
+### Number of recent contributors
+
+This metric quantifies the total count of unique individuals who contributed
+within the last 90 days.
+
+
 ### Contributor Growth Rate
 
 This metric measures the growth rate of active contributors, defined as the

@@ -80,6 +80,7 @@ class GitEventsAnalyzer:
         self.contributors_growth: dict[str, set] = {"first_half": set(), "second_half": set()}
         self.organizations: Counter = Counter()
         self.recent_organizations: set = set()
+        self.recent_contributors: set = set()
         self.file_types: dict = {"code": 0, "binary": 0, "other": 0}
         self.added_lines: int = 0
         self.removed_lines: int = 0
@@ -237,6 +238,11 @@ class GitEventsAnalyzer:
 
         return len(self.recent_organizations)
 
+    def get_recent_contributors(self):
+        """Return the number of contributors from the last 90d."""
+
+        return len(self.recent_contributors)
+
     def get_growth_rate_of_contributors(self):
         """Return the growth of contributors by period."""
 
@@ -285,6 +291,16 @@ class GitEventsAnalyzer:
                 self.contributors_growth["first_half"].add(author)
             else:
                 self.contributors_growth["second_half"].add(author)
+
+        # Update contributors by period
+        try:
+            commit_date = str_to_datetime(event_data.get("CommitDate"))
+            days_interval = (self.to_date - commit_date).days
+        except (ValueError, TypeError, InvalidDateError):
+            pass
+        else:
+            if days_interval <= 90:
+                self.recent_contributors.add(author)
 
     def _update_organizations(self, event_data):
         try:
@@ -418,6 +434,7 @@ def get_repository_metrics(
     metrics["metrics"]["pony_factor"] = analyzer.get_pony_factor()
     metrics["metrics"]["elephant_factor"] = analyzer.get_elephant_factor()
     metrics["metrics"]["recent_organizations"] = analyzer.get_recent_organizations()
+    metrics["metrics"]["recent_contributors"] = analyzer.get_recent_contributors()
     metrics["metrics"]["contributor_growth_rate"] = analyzer.get_growth_rate_of_contributors()
 
     if from_date and to_date:
