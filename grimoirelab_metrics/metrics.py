@@ -27,7 +27,7 @@ from collections import Counter
 
 from opensearchpy import OpenSearch, Search
 
-from grimoirelab_toolkit.datetime import str_to_datetime
+from grimoirelab_toolkit.datetime import str_to_datetime, InvalidDateError
 
 logging.getLogger("opensearch").setLevel(logging.WARNING)
 
@@ -61,6 +61,7 @@ class GitEventsAnalyzer:
         self.total_commits: int = 0
         self.contributors: Counter = Counter()
         self.companies: Counter = Counter()
+        self.companies_by_period: dict[str, set] = {"30d": set(), "90d": set(), "180d": set()}
         self.file_types: dict = {"code": 0, "binary": 0, "other": 0}
         self.added_lines: int = 0
         self.removed_lines: int = 0
@@ -209,6 +210,15 @@ class GitEventsAnalyzer:
             "casual": casual,
         }
 
+    def get_organizations_count_by_period(self):
+        """Return the number of organizations by period."""
+
+        return {
+            "30d": len(self.companies_by_period["30d"]),
+            "90d": len(self.companies_by_period["90d"]),
+            "180d": len(self.companies_by_period["180d"]),
+        }
+
     def get_analysis_metadata(self):
         """Return metadata about the analysis."""
 
@@ -226,13 +236,29 @@ class GitEventsAnalyzer:
 
         return metadata
 
-    def _update_companies(self, event):
+    def _update_companies(self, event_data):
         try:
-            author = event[AUTHOR_FIELD]
+            author = event_data[AUTHOR_FIELD]
             company = author.split("@")[1][:-1]
-            self.companies[company] += 1
         except (IndexError, KeyError):
+            return
+
+        self.companies[company] += 1
+
+        # Update companies by period
+        try:
+            today = datetime.datetime.now(datetime.timezone.utc)
+            commit_date = str_to_datetime(event_data.get("CommitDate"))
+            days_interval = (today - commit_date).days
+        except (ValueError, TypeError, InvalidDateError):
             pass
+        else:
+            if days_interval <= 30:
+                self.companies_by_period["30d"].add(company)
+            if days_interval <= 90:
+                self.companies_by_period["90d"].add(company)
+            if days_interval <= 180:
+                self.companies_by_period["180d"].add(company)
 
     def _update_file_metrics(self, event):
         if "files" not in event:
@@ -356,6 +382,7 @@ def get_repository_metrics(
         "message_size": analyzer.get_message_size_metrics(),
         "developer_categories": analyzer.get_developer_categories(),
         "commits_per": analyzer.get_commit_frequency_metrics(days),
+        "organizations_count": analyzer.get_organizations_count_by_period(),
     }
 
     for prefix, metrics_set in metrics_to_flatten.items():
