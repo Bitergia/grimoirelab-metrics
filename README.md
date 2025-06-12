@@ -161,6 +161,12 @@ repository (for this case, Git) that have seen recent development activity,
 usually indicated by new commits.
 
 
+### Days since last commit
+
+This metric shows the number of days since the last commit was submitted to the
+repository or the project.
+
+
 ### Other metrics
 
 - Number of commits per repository

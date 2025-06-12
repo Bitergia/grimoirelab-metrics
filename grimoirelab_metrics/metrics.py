@@ -281,6 +281,16 @@ class GitEventsAnalyzer:
 
         return metadata
 
+    def get_days_since_last_commit(self):
+        """Return the number of days since the last commit."""
+
+        if not self.last_commit_date:
+            return None
+
+        days_since_last_commit = (self.to_date - self.last_commit_date).days
+
+        return days_since_last_commit
+
     def _update_contributors(self, event_data):
         author = event_data[AUTHOR_FIELD]
 
@@ -335,6 +345,7 @@ class GitEventsAnalyzer:
         for file in event["files"]:
             if not file["file"]:
                 continue
+
             # File type metrics
             if self.re_code_pattern.search(file["file"]):
                 self.file_types["code"] += 1
@@ -379,6 +390,7 @@ class GitEventsAnalyzer:
 
     def _update_branches(self, event_data):
         """Identify the refs that are branches and update the active branches."""
+
         if "refs" not in event_data:
             return
 
@@ -456,6 +468,7 @@ def get_repository_metrics(
     metrics["metrics"]["recent_contributors"] = analyzer.get_recent_contributors()
     metrics["metrics"]["contributor_growth_rate"] = analyzer.get_growth_rate_of_contributors()
     metrics["metrics"]["active_branches"] = analyzer.get_active_branch_count()
+    metrics["metrics"]["days_since_last_commit"] = analyzer.get_days_since_last_commit()
 
     if from_date and to_date:
         days = (to_date - from_date).days

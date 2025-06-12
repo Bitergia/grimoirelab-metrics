@@ -474,6 +474,26 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         active_branches = self.analyzer.get_active_branch_count()
         self.assertEqual(active_branches, 3)
 
+    def test_get_days_since_last_commit(self):
+        """Test if the days since last commit are calculated correctly"""
+
+        # Add an event with a commit from 10 days ago
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "commit": "abcdef1234567890abcdef1234567890abcdef12",
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Old commit",
+                    "CommitDate": (now - datetime.timedelta(days=10, hours=1)).isoformat(),
+                },
+            }
+        ]
+        self.analyzer.process_events(events)
+        days_since_last_commit = self.analyzer.get_days_since_last_commit()
+        self.assertEqual(days_since_last_commit, 10)
+
 
 if __name__ == "__main__":
     unittest.main()
