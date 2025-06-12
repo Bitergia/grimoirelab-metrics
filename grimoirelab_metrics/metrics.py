@@ -293,6 +293,16 @@ class GitEventsAnalyzer:
 
         return metadata
 
+    def get_days_since_last_commit(self):
+        """Return the number of days since the last commit."""
+
+        if not self.last_commit_date:
+            return None
+
+        days_since_last_commit = (self.to_date - self.last_commit_date).days
+
+        return days_since_last_commit
+
     def _update_contributors(self, event_data):
         author = event_data[AUTHOR_FIELD]
 
@@ -476,6 +486,7 @@ def get_repository_metrics(
     metrics["metrics"]["elephant_factor"] = analyzer.get_elephant_factor()
     metrics["metrics"]["contributor_growth"] = analyzer.get_growth_of_contributors()
     metrics["metrics"]["active_branches"] = analyzer.get_active_branch_count()
+    metrics["metrics"]["days_since_last_commit"] = analyzer.get_days_since_last_commit()
 
     if from_date and to_date:
         days = (to_date - from_date).days
