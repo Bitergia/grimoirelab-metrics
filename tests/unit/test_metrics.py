@@ -447,6 +447,39 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         growth = self.analyzer.get_growth_of_contributors()
         self.assertAlmostEqual(growth, 0.66, delta=0.01)
 
+    def test_active_branch_count(self):
+        """Test if the active branch count is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        active_branches = self.analyzer.get_active_branch_count()
+        self.assertEqual(active_branches, 1)
+
+        # Add events from a new branch
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "commit": "1234567890abcdef1234567890abcdef12345678",
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "parents": [],
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "commit": "abcdef1234567890abcdef1234567890abcdef12",
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "parents": ["1234567890abcdef1234567890abcdef12345678"],
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        active_branches = self.analyzer.get_active_branch_count()
+        self.assertEqual(active_branches, 2)
 
 if __name__ == "__main__":
     unittest.main()

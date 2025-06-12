@@ -90,6 +90,7 @@ class GitEventsAnalyzer:
         self.last_commit: str | None = None
         self.first_commit_date: datetime.datetime | None = None
         self.last_commit_date: datetime.datetime | None = None
+        self.active_branches: int = 0
         self._half_period = self.from_date + (self.to_date - self.from_date) / 2
 
     def process_events(self, events: iter(dict[str, Any])):
@@ -100,6 +101,7 @@ class GitEventsAnalyzer:
             event_data = event.get("data")
 
             self.total_commits += 1
+            self._update_branch_number(event_data)
             self._update_contributors(event_data)
             self._update_companies(event_data)
             self._update_file_metrics(event_data)
@@ -263,6 +265,11 @@ class GitEventsAnalyzer:
 
         return growth
 
+    def get_active_branch_count(self):
+        """Return the number of active branches."""
+
+        return self.active_branches
+
     def get_analysis_metadata(self):
         """Return metadata about the analysis."""
 
@@ -384,6 +391,13 @@ class GitEventsAnalyzer:
             self.last_commit = commit
             self.last_commit_date = commit_date
 
+    def _update_branch_number(self, event_data):
+        """By identifying commits without parent commits, we can determine the number of branches."""
+
+        parents = event_data.get("parents", None)
+        if isinstance(parents, list) and len(parents) == 0:
+            self.active_branches += 1
+
 
 def get_repository_metrics(
     repository: str,
@@ -448,6 +462,7 @@ def get_repository_metrics(
     metrics["metrics"]["pony_factor"] = analyzer.get_pony_factor()
     metrics["metrics"]["elephant_factor"] = analyzer.get_elephant_factor()
     metrics["metrics"]["contributor_growth"] = analyzer.get_growth_of_contributors()
+    metrics["metrics"]["active_branches"] = analyzer.get_active_branch_count()
 
     if from_date and to_date:
         days = (to_date - from_date).days
