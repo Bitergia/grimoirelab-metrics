@@ -1166,7 +1166,9 @@
       "parents": [
         "c2ecce0815cae0f293201541bbd557b1549774e7"
       ],
-      "refs": [],
+      "refs": [
+        "refs/heads/main"
+      ],
       "Author": "User One <userone@example.com>",
       "AuthorDate": "Thu Feb 22 18:01:08 2024 +0100",
       "Commit": "User One <userone@example.com>",

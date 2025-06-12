@@ -94,6 +94,7 @@ class GitEventsAnalyzer:
         self.last_commit: str | None = None
         self.first_commit_date: datetime.datetime | None = None
         self.last_commit_date: datetime.datetime | None = None
+        self.active_branches: set = set()
         self._half_period = self.from_date + (self.to_date - self.from_date) / 2
 
     def process_events(self, events: iter(dict[str, Any])):
@@ -104,6 +105,7 @@ class GitEventsAnalyzer:
             event_data = event.get("data")
 
             self.total_commits += 1
+            self._update_branches(event_data)
             self._update_contributors(event_data)
             self._update_organizations(event_data)
             self._update_file_metrics(event_data)
@@ -257,6 +259,11 @@ class GitEventsAnalyzer:
         else:
             return (second_half - first_half) / first_half
 
+    def get_active_branch_count(self):
+        """Return the number of active branches."""
+
+        return len(self.active_branches)
+
     def get_analysis_metadata(self):
         """Return metadata about the analysis."""
 
@@ -370,6 +377,18 @@ class GitEventsAnalyzer:
             self.last_commit = commit
             self.last_commit_date = commit_date
 
+    def _update_branches(self, event_data):
+        """Identify the refs that are branches and update the active branches."""
+        if "refs" not in event_data:
+            return
+
+        for ref in event_data["refs"]:
+            if "refs/heads/" not in ref:
+                continue
+
+            branch_name = ref.split("refs/heads/")[1]
+            self.active_branches.add(branch_name)
+
 
 def get_repository_metrics(
     repository: str,
@@ -436,6 +455,7 @@ def get_repository_metrics(
     metrics["metrics"]["recent_organizations"] = analyzer.get_recent_organizations()
     metrics["metrics"]["recent_contributors"] = analyzer.get_recent_contributors()
     metrics["metrics"]["contributor_growth_rate"] = analyzer.get_growth_rate_of_contributors()
+    metrics["metrics"]["active_branches"] = analyzer.get_active_branch_count()
 
     if from_date and to_date:
         days = (to_date - from_date).days

@@ -154,6 +154,13 @@ GrowthRate (t_1, t_2) = \frac{C_a(t_2) - C_a(t_1)}{C_a(t_1)},
 ```
 
 
+### Number of active branches
+
+This metric refers to the count of branches within a project's version control
+repository (for this case, Git) that have seen recent development activity,
+usually indicated by new commits.
+
+
 ### Other metrics
 
 - Number of commits per repository
