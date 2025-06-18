@@ -25,7 +25,7 @@ import typing
 
 from collections import Counter
 
-from opensearchpy import OpenSearch, Search
+from opensearchpy import OpenSearch, Search, Q
 
 from grimoirelab_toolkit.datetime import (
     str_to_datetime,
@@ -41,7 +41,18 @@ if typing.TYPE_CHECKING:
     from typing import Any
 
 
-COMMIT_EVENT_TYPE = "org.grimoirelab.events.git.commit"
+GIT_EVENT_COMMIT = "org.grimoirelab.events.git.commit"
+GIT_EVENT_ACTION_ADDED = "org.grimoirelab.events.git.file.added"
+GIT_EVENT_ACTION_DELETED = "org.grimoirelab.events.git.file.deleted"
+GIT_EVENT_ACTION_REPLACED = "org.grimoirelab.events.git.file.replaced"
+GIT_EVENT_ACTION_COPIED = "org.grimoirelab.events.git.file.copied"
+GIT_EVENT_FILE_ACTIONS = [
+    GIT_EVENT_ACTION_ADDED,
+    GIT_EVENT_ACTION_DELETED,
+    GIT_EVENT_ACTION_REPLACED,
+    GIT_EVENT_ACTION_COPIED,
+]
+
 AUTHOR_FIELD = "Author"
 FILE_TYPE_CODE = (
     r"\.bazel$|\.bazelrc$|\.bzl$|\.c$|\.cc$|\.cp$|\.cpp$|\.cs$\|\.cxx$|\.c\+\+$|"
@@ -52,6 +63,10 @@ FILE_TYPE_BINARY = (
     r"\.dll$|\.dmg$|\.exe$|\.gz$|\.ipa$|\.iso$|\.jar$|\.lib$|\.msi$|\.o$|\.obj$|\.rar$|"
     r"\.rpm$|\.so$|\.tar$|\.xar$|\.xz$|\.zip$|\.zst$|\.Z$"
 )
+LICENSE_FILE_REGEX = r"LICENSE|LICENSE\.md|LICENSE\.txt|COPYING"
+ADOPTERS_FILE_REGEX = r"ADOPTERS|ADOPTERS\.md|ADOPTERS\.txt"
+COMPILED_LICENSE_FILE_REGEX = re.compile(LICENSE_FILE_REGEX)
+COMPILED_ADOPTERS_FILE_REGEX = re.compile(ADOPTERS_FILE_REGEX)
 
 
 class GitEventsAnalyzer:
@@ -97,21 +112,22 @@ class GitEventsAnalyzer:
         self.last_commit_date: datetime.datetime | None = None
         self.active_branches: set = set()
         self._half_period = self.from_date + (self.to_date - self.from_date) / 2
+        self.files_found: dict[str, int] = {"license": 0, "adopters": 0}
 
     def process_events(self, events: iter(dict[str, Any])):
         for event in events:
-            if event["type"] != COMMIT_EVENT_TYPE:
-                continue
+            if event["type"] == GIT_EVENT_COMMIT:
+                event_data = event.get("data")
 
-            event_data = event.get("data")
-
-            self._update_commit_count(event_data)
-            self._update_branches(event_data)
-            self._update_contributors(event_data)
-            self._update_organizations(event_data)
-            self._update_file_metrics(event_data)
-            self._update_message_size_metrics(event_data)
-            self._update_first_and_last_commit(event_data)
+                self._update_commit_count(event_data)
+                self._update_branches(event_data)
+                self._update_contributors(event_data)
+                self._update_organizations(event_data)
+                self._update_file_metrics(event_data)
+                self._update_message_size_metrics(event_data)
+                self._update_first_and_last_commit(event_data)
+            elif event["type"] in GIT_EVENT_FILE_ACTIONS:
+                self._check_files_found(event)
 
     def get_commit_count(self):
         return self.total_commits
@@ -305,6 +321,14 @@ class GitEventsAnalyzer:
 
         return days_since_last_commit
 
+    def get_found_files(self):
+        """Return the files found in the repository."""
+
+        return {
+            "license": 1 if self.files_found["license"] > 0 else 0,
+            "adopters": 1 if self.files_found["adopters"] > 0 else 0,
+        }
+
     def _update_commit_count(self, event_data):
         """Update the commit count and commits by period."""
 
@@ -396,6 +420,49 @@ class GitEventsAnalyzer:
                 except ValueError:
                     pass
 
+    def _check_files_found(self, event):
+        """
+        Check if the file exists in the event data and update metrics accordingly.
+
+        To identify if a file exists, it checks the filename against
+        the regular expressions for license and adopters files.
+        When the filename matches, added and copied actions increase the count,
+        deleted and replaced actions decrease the count if it is the filename,
+        and increase if it is the new filename.
+        If the file count is greater than zero, it indicates that at least one
+        of the files exists in the repository.
+        """
+        event_type = event["type"]
+        data = event["data"]
+
+        if event_type == GIT_EVENT_ACTION_ADDED:
+            if COMPILED_LICENSE_FILE_REGEX.fullmatch(data["filename"]):
+                self.files_found["license"] += 1
+            elif COMPILED_ADOPTERS_FILE_REGEX.fullmatch(data["filename"]):
+                self.files_found["adopters"] += 1
+
+        elif event_type == GIT_EVENT_ACTION_DELETED:
+            if COMPILED_LICENSE_FILE_REGEX.fullmatch(data["filename"]):
+                self.files_found["license"] -= 1
+            elif COMPILED_ADOPTERS_FILE_REGEX.fullmatch(data["filename"]):
+                self.files_found["adopters"] -= 1
+
+        elif event_type == GIT_EVENT_ACTION_REPLACED:
+            if COMPILED_LICENSE_FILE_REGEX.fullmatch(data["filename"]):
+                self.files_found["license"] -= 1
+            elif COMPILED_ADOPTERS_FILE_REGEX.fullmatch(data["filename"]):
+                self.files_found["adopters"] -= 1
+            if COMPILED_LICENSE_FILE_REGEX.fullmatch(data["new_filename"]):
+                self.files_found["license"] += 1
+            elif COMPILED_ADOPTERS_FILE_REGEX.fullmatch(data["new_filename"]):
+                self.files_found["adopters"] += 1
+
+        elif event_type == GIT_EVENT_ACTION_COPIED:
+            if COMPILED_LICENSE_FILE_REGEX.fullmatch(data["new_filename"]):
+                self.files_found["license"] += 1
+            elif COMPILED_ADOPTERS_FILE_REGEX.fullmatch(data["new_filename"]):
+                self.files_found["adopters"] += 1
+
     def _update_message_size_metrics(self, event):
         message = event.get("message", "")
         self.messages_sizes.append(len(message))
@@ -474,10 +541,6 @@ def get_repository_metrics(
         verify_certs=verify_certs,
     )
 
-    metrics = {"metrics": {}}
-
-    events = get_repository_events(os_conn, opensearch_index, repository, from_date, to_date)
-
     analyzer = GitEventsAnalyzer(
         from_date=from_date,
         to_date=to_date,
@@ -487,8 +550,37 @@ def get_repository_metrics(
         elephant_threshold=elephant_threshold,
         dev_categories_thresholds=dev_categories_thresholds,
     )
+
+    # Process commit events for the repository within the specified date range
+    events = get_repository_events(
+        connection=os_conn,
+        index_name=opensearch_index,
+        repository=repository,
+        event_type=[GIT_EVENT_COMMIT],
+        from_date=from_date,
+        to_date=to_date,
+    )
     analyzer.process_events(events)
 
+    # Process file events for the repository, only for license and adopters files
+    file_regex = ADOPTERS_FILE_REGEX + r"|" + LICENSE_FILE_REGEX
+    file_filter = Q(
+        "bool",
+        should=[Q("regexp", data__filename=file_regex), Q("regexp", data__new_filename=file_regex)],
+        minimum_should_match=1,
+    )
+    events = get_repository_events(
+        connection=os_conn,
+        index_name=opensearch_index,
+        repository=repository,
+        event_type=GIT_EVENT_FILE_ACTIONS,
+        to_date=to_date,
+        additional_filter=file_filter,
+    )
+
+    analyzer.process_events(events)
+
+    metrics = {"metrics": {}}
     metrics["metrics"]["total_commits"] = analyzer.get_commit_count()
     metrics["metrics"]["total_contributors"] = analyzer.get_contributor_count()
     metrics["metrics"]["total_organizations"] = analyzer.get_organization_count()
@@ -514,6 +606,7 @@ def get_repository_metrics(
         "message_size": analyzer.get_message_size_metrics(),
         "developer_categories": analyzer.get_developer_categories(),
         "commits_per": analyzer.get_commit_frequency_metrics(days),
+        "found_file": analyzer.get_found_files(),
     }
 
     for prefix, metrics_set in metrics_to_flatten.items():
@@ -529,23 +622,33 @@ def get_repository_events(
     connection: OpenSearch,
     index_name: str,
     repository: str,
-    from_date: datetime.datetime = None,
-    to_date: datetime.datetime = None,
+    event_type: list[str] | None = None,
+    from_date: datetime.datetime | None = None,
+    to_date: datetime.datetime | None = None,
+    additional_filter: Any | None = None,
 ) -> iter(dict[str, Any]):
     """
-    Returns the events between start_date and end_date for a repository.
+    Returns the events for a repository within a specified date range and event type.
 
     :param connection: OpenSearch connection object
     :param index_name: Name of the alias where Git data is stored in BAP
     :param repository: Name of the repository to filter commits
+    :param event_type: List of event types to filter, e.g., [GIT_EVENT_COMMIT]
     :param from_date: Start date, by default None
     :param to_date: End date, by default None
+    :param additional_filter: Additional filter to apply to the search query, by default None
     """
-    s = Search(using=connection, index=index_name).filter("match", source=repository).filter("term", type=COMMIT_EVENT_TYPE)
+    s = Search(using=connection, index=index_name).filter("match", source=repository)
+
+    if event_type:
+        s = s.filter("terms", type=event_type)
 
     date_range = _format_date(from_date, to_date)
     if date_range:
         s = s.filter("range", time=date_range)
+
+    if additional_filter:
+        s = s.filter(additional_filter)
 
     return s.scan()
 
@@ -589,7 +692,7 @@ def connect_to_opensearch(
     return os_conn
 
 
-def _format_date(from_date: datetime.datetime, to_date: datetime.datetime) -> dict:
+def _format_date(from_date: datetime.datetime | None, to_date: datetime.datetime | None) -> dict:
     """
     Format the date range for the OpenSearch query.
 
