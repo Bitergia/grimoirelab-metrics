@@ -251,6 +251,14 @@ class GitEventsAnalyzer:
 
         return self.recent_commits
 
+    def get_growth_of_contributors(self):
+        """Return the growth of contributors by period."""
+
+        first_half = len(self.contributors_growth["first_half"])
+        second_half = len(self.contributors_growth["second_half"])
+
+        return second_half - first_half
+
     def get_growth_rate_of_contributors(self):
         """Return the growth of contributors by period."""
 
@@ -489,6 +497,7 @@ def get_repository_metrics(
     metrics["metrics"]["recent_organizations"] = analyzer.get_recent_organizations()
     metrics["metrics"]["recent_contributors"] = analyzer.get_recent_contributors()
     metrics["metrics"]["recent_commits"] = analyzer.get_recent_commits()
+    metrics["metrics"]["contributor_growth"] = analyzer.get_growth_of_contributors()
     metrics["metrics"]["contributor_growth_rate"] = analyzer.get_growth_rate_of_contributors()
     metrics["metrics"]["active_branches"] = analyzer.get_active_branch_count()
     metrics["metrics"]["days_since_last_commit"] = analyzer.get_days_since_last_commit()

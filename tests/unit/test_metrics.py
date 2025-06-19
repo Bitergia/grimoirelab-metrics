@@ -439,6 +439,40 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         growth = self.analyzer.get_growth_rate_of_contributors()
         self.assertAlmostEqual(growth, -0.33, delta=0.01)
 
+    def test_growth_of_contributors(self):
+        """Test if the growth of contributors is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        growth = self.analyzer.get_growth_of_contributors()
+        self.assertEqual(growth, -3)
+
+        # Add events from new contributors in the last days
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=15)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 2 <author2@example_new_2.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=60)).isoformat(),
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        growth = self.analyzer.get_growth_of_contributors()
+        self.assertEqual(growth, -1)
+
     def test_active_branch_count(self):
         """Test if the active branch count is calculated correctly"""
 

@@ -156,7 +156,22 @@ between the second half and the first half, divided by the number of active
 contributors in the first half.
 
 ```math
-GrowthRate (t_1, t_2) = \frac{C_a(t_2) - C_a(t_1)}{C_a(t_1)},
+GrowthRate (t_1, t_2) = \frac{C_a(t_2) - C_a(t_1)}{C_a(t_1)}
+```
+
+
+### Contributor Growth
+
+This metric measures the growth of active contributors, defined as the
+number of people sending one or more code contributions (in this case,
+Git commits) in a given period.
+
+To calculate it, the period is split into two halves, and the number of active
+contributors in each half is compared. Growth is the difference between the
+second half and the first half.
+
+```math
+Growth (t_1, t_2) = C_a(t_2) - C_a(t_1)
 ```
 
 
