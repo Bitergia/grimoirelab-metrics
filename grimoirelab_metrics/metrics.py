@@ -76,6 +76,7 @@ class GitEventsAnalyzer:
             self.to_date = datetime_utcnow()
 
         self.total_commits: int = 0
+        self.recent_commits: int = 0
         self.contributors: Counter = Counter()
         self.contributors_growth: dict[str, set] = {"first_half": set(), "second_half": set()}
         self.organizations: Counter = Counter()
@@ -104,7 +105,7 @@ class GitEventsAnalyzer:
 
             event_data = event.get("data")
 
-            self.total_commits += 1
+            self._update_commit_count(event_data)
             self._update_branches(event_data)
             self._update_contributors(event_data)
             self._update_organizations(event_data)
@@ -245,6 +246,11 @@ class GitEventsAnalyzer:
 
         return len(self.recent_contributors)
 
+    def get_recent_commits(self) -> int:
+        """Return the number of commits in the last 90d."""
+
+        return self.recent_commits
+
     def get_growth_rate_of_contributors(self):
         """Return the growth of contributors by period."""
 
@@ -290,6 +296,22 @@ class GitEventsAnalyzer:
         days_since_last_commit = (self.to_date - self.last_commit_date).days
 
         return days_since_last_commit
+
+    def _update_commit_count(self, event_data):
+        """Update the commit count and commits by period."""
+
+        # Update total commits
+        self.total_commits += 1
+
+        # Update commits by period
+        try:
+            commit_date = str_to_datetime(event_data.get("CommitDate"))
+            days_interval = (self.to_date - commit_date).days
+        except (ValueError, TypeError, InvalidDateError):
+            return
+
+        if days_interval <= 90:
+            self.recent_commits += 1
 
     def _update_contributors(self, event_data):
         author = event_data[AUTHOR_FIELD]
@@ -466,6 +488,7 @@ def get_repository_metrics(
     metrics["metrics"]["elephant_factor"] = analyzer.get_elephant_factor()
     metrics["metrics"]["recent_organizations"] = analyzer.get_recent_organizations()
     metrics["metrics"]["recent_contributors"] = analyzer.get_recent_contributors()
+    metrics["metrics"]["recent_commits"] = analyzer.get_recent_commits()
     metrics["metrics"]["contributor_growth_rate"] = analyzer.get_growth_rate_of_contributors()
     metrics["metrics"]["active_branches"] = analyzer.get_active_branch_count()
     metrics["metrics"]["days_since_last_commit"] = analyzer.get_days_since_last_commit()

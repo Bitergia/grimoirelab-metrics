@@ -494,6 +494,32 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         days_since_last_commit = self.analyzer.get_days_since_last_commit()
         self.assertEqual(days_since_last_commit, 10)
 
+    def test_get_recent_commits(self):
+        """Test if the recent commits are calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        recent_commits = self.analyzer.get_recent_commits()
+        self.assertEqual(recent_commits, 0)
+
+        # Add an event with a commit from 10 days ago
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "commit": "abcdef1234567890abcdef1234567890abcdef12",
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Old commit",
+                    "CommitDate": (now - datetime.timedelta(days=10, hours=1)).isoformat(),
+                },
+            }
+        ]
+        self.analyzer.process_events(extra_events)
+
+        recent_commits = self.analyzer.get_recent_commits()
+        self.assertEqual(recent_commits, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

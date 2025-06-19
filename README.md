@@ -138,6 +138,12 @@ This metric quantifies the total count of unique individuals who contributed
 within the last 90 days.
 
 
+### Number of recent commits
+
+This metric counts the total number of commits made to the project within the
+last 90 days.
+
+
 ### Contributor Growth Rate
 
 This metric measures the growth rate of active contributors, defined as the
