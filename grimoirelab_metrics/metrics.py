@@ -27,7 +27,12 @@ from collections import Counter
 
 from opensearchpy import OpenSearch, Search
 
-from grimoirelab_toolkit.datetime import str_to_datetime
+from grimoirelab_toolkit.datetime import (
+    str_to_datetime,
+    datetime_utcnow,
+    datetime_to_utc,
+    InvalidDateError,
+)
 
 logging.getLogger("opensearch").setLevel(logging.WARNING)
 
@@ -52,15 +57,31 @@ FILE_TYPE_BINARY = (
 class GitEventsAnalyzer:
     def __init__(
         self,
+        from_date: datetime.datetime | None = None,
+        to_date: datetime.datetime | None = None,
         code_file_pattern: str | None = None,
         binary_file_pattern: str | None = None,
         pony_threshold: float = 0.5,
         elephant_threshold: float = 0.5,
         dev_categories_thresholds: tuple[float, float] = (0.8, 0.95),
     ):
+        # Define the default dates if not provided
+        if from_date:
+            self.from_date = datetime_to_utc(from_date)
+        else:
+            self.from_date = datetime_utcnow() - datetime.timedelta(days=365)
+        if to_date:
+            self.to_date = datetime_to_utc(to_date)
+        else:
+            self.to_date = datetime_utcnow()
+
         self.total_commits: int = 0
+        self.recent_commits: int = 0
         self.contributors: Counter = Counter()
-        self.companies: Counter = Counter()
+        self.contributors_growth: dict[str, set] = {"first_half": set(), "second_half": set()}
+        self.organizations: Counter = Counter()
+        self.recent_organizations: set = set()
+        self.recent_contributors: set = set()
         self.file_types: dict = {"code": 0, "binary": 0, "other": 0}
         self.added_lines: int = 0
         self.removed_lines: int = 0
@@ -74,6 +95,8 @@ class GitEventsAnalyzer:
         self.last_commit: str | None = None
         self.first_commit_date: datetime.datetime | None = None
         self.last_commit_date: datetime.datetime | None = None
+        self.active_branches: set = set()
+        self._half_period = self.from_date + (self.to_date - self.from_date) / 2
 
     def process_events(self, events: iter(dict[str, Any])):
         for event in events:
@@ -82,9 +105,10 @@ class GitEventsAnalyzer:
 
             event_data = event.get("data")
 
-            self.total_commits += 1
-            self.contributors[event_data[AUTHOR_FIELD]] += 1
-            self._update_companies(event_data)
+            self._update_commit_count(event_data)
+            self._update_branches(event_data)
+            self._update_contributors(event_data)
+            self._update_organizations(event_data)
             self._update_file_metrics(event_data)
             self._update_message_size_metrics(event_data)
             self._update_first_and_last_commit(event_data)
@@ -94,6 +118,9 @@ class GitEventsAnalyzer:
 
     def get_contributor_count(self):
         return len(self.contributors)
+
+    def get_organization_count(self):
+        return len(self.organizations)
 
     def get_pony_factor(self):
         """Number of individuals producing up to 50% of the total number of code contributions"""
@@ -113,15 +140,15 @@ class GitEventsAnalyzer:
         return pony_factor
 
     def get_elephant_factor(self):
-        """Number of companies producing up to 50% of the total number of code contributions"""
+        """Number of organizations producing up to 50% of the total number of code contributions"""
 
         partial_contributions = 0
         elephant_factor = 0
 
-        if len(self.companies) == 0:
+        if len(self.organizations) == 0:
             return 0
 
-        for _, contributions in self.companies.most_common():
+        for _, contributions in self.organizations.most_common():
             partial_contributions += contributions
             elephant_factor += 1
             if partial_contributions / self.total_commits > self.elephant_threshold:
@@ -209,6 +236,48 @@ class GitEventsAnalyzer:
             "casual": casual,
         }
 
+    def get_recent_organizations(self):
+        """Return the number of recent organizations."""
+
+        return len(self.recent_organizations)
+
+    def get_recent_contributors(self):
+        """Return the number of contributors from the last 90d."""
+
+        return len(self.recent_contributors)
+
+    def get_recent_commits(self) -> int:
+        """Return the number of commits in the last 90d."""
+
+        return self.recent_commits
+
+    def get_growth_of_contributors(self):
+        """Return the growth of contributors by period."""
+
+        first_half = len(self.contributors_growth["first_half"])
+        second_half = len(self.contributors_growth["second_half"])
+
+        return second_half - first_half
+
+    def get_growth_rate_of_contributors(self):
+        """Return the growth of contributors by period."""
+
+        first_half = len(self.contributors_growth["first_half"])
+        second_half = len(self.contributors_growth["second_half"])
+
+        if first_half == 0 and second_half == 0:
+            return 0
+        elif first_half == 0 and second_half != 0:
+            # It increased infinitely
+            return second_half
+        else:
+            return (second_half - first_half) / first_half
+
+    def get_active_branch_count(self):
+        """Return the number of active branches."""
+
+        return len(self.active_branches)
+
     def get_analysis_metadata(self):
         """Return metadata about the analysis."""
 
@@ -226,13 +295,78 @@ class GitEventsAnalyzer:
 
         return metadata
 
-    def _update_companies(self, event):
+    def get_days_since_last_commit(self):
+        """Return the number of days since the last commit."""
+
+        if not self.last_commit_date:
+            return None
+
+        days_since_last_commit = (self.to_date - self.last_commit_date).days
+
+        return days_since_last_commit
+
+    def _update_commit_count(self, event_data):
+        """Update the commit count and commits by period."""
+
+        # Update total commits
+        self.total_commits += 1
+
+        # Update commits by period
         try:
-            author = event[AUTHOR_FIELD]
-            company = author.split("@")[1][:-1]
-            self.companies[company] += 1
-        except (IndexError, KeyError):
+            commit_date = str_to_datetime(event_data.get("CommitDate"))
+            days_interval = (self.to_date - commit_date).days
+        except (ValueError, TypeError, InvalidDateError):
+            return
+
+        if days_interval <= 90:
+            self.recent_commits += 1
+
+    def _update_contributors(self, event_data):
+        author = event_data[AUTHOR_FIELD]
+
+        self.contributors[author] += 1
+
+        # Update contributor growth
+        try:
+            commit_date = event_data.get("CommitDate")
+            commit_date = str_to_datetime(commit_date)
+        except (ValueError, TypeError, InvalidDateError):
+            commit_date = None
+
+        if commit_date and self._half_period:
+            if commit_date < self._half_period:
+                self.contributors_growth["first_half"].add(author)
+            else:
+                self.contributors_growth["second_half"].add(author)
+
+        # Update contributors by period
+        try:
+            commit_date = str_to_datetime(event_data.get("CommitDate"))
+            days_interval = (self.to_date - commit_date).days
+        except (ValueError, TypeError, InvalidDateError):
             pass
+        else:
+            if days_interval <= 90:
+                self.recent_contributors.add(author)
+
+    def _update_organizations(self, event_data):
+        try:
+            author = event_data[AUTHOR_FIELD]
+            organization = author.split("@")[1][:-1]
+        except (IndexError, KeyError):
+            return
+
+        self.organizations[organization] += 1
+
+        # Update organizations by period
+        try:
+            commit_date = str_to_datetime(event_data.get("CommitDate"))
+            days_interval = (self.to_date - commit_date).days
+        except (ValueError, TypeError, InvalidDateError):
+            pass
+        else:
+            if days_interval <= 90:
+                self.recent_organizations.add(organization)
 
     def _update_file_metrics(self, event):
         if "files" not in event:
@@ -241,6 +375,7 @@ class GitEventsAnalyzer:
         for file in event["files"]:
             if not file["file"]:
                 continue
+
             # File type metrics
             if self.re_code_pattern.search(file["file"]):
                 self.file_types["code"] += 1
@@ -282,6 +417,19 @@ class GitEventsAnalyzer:
         if not self.last_commit or self.last_commit_date < commit_date:
             self.last_commit = commit
             self.last_commit_date = commit_date
+
+    def _update_branches(self, event_data):
+        """Identify the refs that are branches and update the active branches."""
+
+        if "refs" not in event_data:
+            return
+
+        for ref in event_data["refs"]:
+            if "refs/heads/" not in ref:
+                continue
+
+            branch_name = ref.split("refs/heads/")[1]
+            self.active_branches.add(branch_name)
 
 
 def get_repository_metrics(
@@ -331,6 +479,8 @@ def get_repository_metrics(
     events = get_repository_events(os_conn, opensearch_index, repository, from_date, to_date)
 
     analyzer = GitEventsAnalyzer(
+        from_date=from_date,
+        to_date=to_date,
         code_file_pattern=code_file_pattern,
         binary_file_pattern=binary_file_pattern,
         pony_threshold=pony_threshold,
@@ -341,8 +491,16 @@ def get_repository_metrics(
 
     metrics["metrics"]["total_commits"] = analyzer.get_commit_count()
     metrics["metrics"]["total_contributors"] = analyzer.get_contributor_count()
+    metrics["metrics"]["total_organizations"] = analyzer.get_organization_count()
     metrics["metrics"]["pony_factor"] = analyzer.get_pony_factor()
     metrics["metrics"]["elephant_factor"] = analyzer.get_elephant_factor()
+    metrics["metrics"]["recent_organizations"] = analyzer.get_recent_organizations()
+    metrics["metrics"]["recent_contributors"] = analyzer.get_recent_contributors()
+    metrics["metrics"]["recent_commits"] = analyzer.get_recent_commits()
+    metrics["metrics"]["contributor_growth"] = analyzer.get_growth_of_contributors()
+    metrics["metrics"]["contributor_growth_rate"] = analyzer.get_growth_rate_of_contributors()
+    metrics["metrics"]["active_branches"] = analyzer.get_active_branch_count()
+    metrics["metrics"]["days_since_last_commit"] = analyzer.get_days_since_last_commit()
 
     if from_date and to_date:
         days = (to_date - from_date).days

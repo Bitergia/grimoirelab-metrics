@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-
+import datetime
 import json
 import unittest
 
@@ -52,6 +52,21 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         ]
         self.analyzer.process_events(extra_events)
         self.assertEqual(self.analyzer.get_contributor_count(), 4)
+
+    def test_organization_count(self):
+        """Test that the organization count is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+        self.assertEqual(self.analyzer.get_organization_count(), 2)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {"Author": "Author 1 <author1@example3.com>", "message": "Another commit"},
+            }
+        ]
+        self.analyzer.process_events(extra_events)
+        self.assertEqual(self.analyzer.get_organization_count(), 3)
 
     def test_get_pony_factor(self):
         """Test the computation of the pony factor is correct"""
@@ -321,6 +336,223 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         self.assertEqual(metadata["last_commit"], "fd7d80fc8d33a97013119fe52170467c20ee8b37")
         self.assertEqual(metadata["first_commit_date"], "2024-01-09T11:15:39+01:00")
         self.assertEqual(metadata["last_commit_date"], "2024-04-05T16:45:24+02:00")
+
+    def test_get_recent_organizations(self):
+        """Test if the recent organizations are calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        recent_organizations = self.analyzer.get_recent_organizations()
+        self.assertEqual(recent_organizations, 0)
+
+        # Add events from a new organization in the last 30 days and 90 days
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=15)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 2 <author2@example_new_2.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=60)).isoformat(),
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        recent_organizations = self.analyzer.get_recent_organizations()
+        self.assertEqual(recent_organizations, 2)
+
+    def test_recent_contributors(self):
+        """Test if the recent contributors are calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        recent_contributors = self.analyzer.get_recent_contributors()
+        self.assertEqual(recent_contributors, 0)
+
+        # Add events from new contributors in the last days
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=35)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 2 <author2@example_new_2.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=60)).isoformat(),
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        recent_contributors = self.analyzer.get_recent_contributors()
+        self.assertEqual(recent_contributors, 2)
+
+    def test_growth_rate_of_contributors(self):
+        """Test if the growth rate of contributors is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        growth = self.analyzer.get_growth_rate_of_contributors()
+        self.assertEqual(growth, -1.0)
+
+        # Add events from new contributors in the last days
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=15)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 2 <author2@example_new_2.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=60)).isoformat(),
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        growth = self.analyzer.get_growth_rate_of_contributors()
+        self.assertAlmostEqual(growth, -0.33, delta=0.01)
+
+    def test_growth_of_contributors(self):
+        """Test if the growth of contributors is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        growth = self.analyzer.get_growth_of_contributors()
+        self.assertEqual(growth, -3)
+
+        # Add events from new contributors in the last days
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=15)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 2 <author2@example_new_2.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=60)).isoformat(),
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        growth = self.analyzer.get_growth_of_contributors()
+        self.assertEqual(growth, -1)
+
+    def test_active_branch_count(self):
+        """Test if the active branch count is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        active_branches = self.analyzer.get_active_branch_count()
+        self.assertEqual(active_branches, 2)
+
+        # Add events from a new branch
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "commit": "1234567890abcdef1234567890abcdef12345678",
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "refs": ["refs/heads/another-branch"],
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "commit": "abcdef1234567890abcdef1234567890abcdef12",
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "parents": ["1234567890abcdef1234567890abcdef12345678"],
+                    "refs": ["HEAD -> refs/heads/main"],
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        active_branches = self.analyzer.get_active_branch_count()
+        self.assertEqual(active_branches, 3)
+
+    def test_get_days_since_last_commit(self):
+        """Test if the days since last commit are calculated correctly"""
+
+        # Add an event with a commit from 10 days ago
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "commit": "abcdef1234567890abcdef1234567890abcdef12",
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Old commit",
+                    "CommitDate": (now - datetime.timedelta(days=10, hours=1)).isoformat(),
+                },
+            }
+        ]
+        self.analyzer.process_events(events)
+        days_since_last_commit = self.analyzer.get_days_since_last_commit()
+        self.assertEqual(days_since_last_commit, 10)
+
+    def test_get_recent_commits(self):
+        """Test if the recent commits are calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        recent_commits = self.analyzer.get_recent_commits()
+        self.assertEqual(recent_commits, 0)
+
+        # Add an event with a commit from 10 days ago
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "commit": "abcdef1234567890abcdef1234567890abcdef12",
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Old commit",
+                    "CommitDate": (now - datetime.timedelta(days=10, hours=1)).isoformat(),
+                },
+            }
+        ]
+        self.analyzer.process_events(extra_events)
+
+        recent_commits = self.analyzer.get_recent_commits()
+        self.assertEqual(recent_commits, 1)
 
 
 if __name__ == "__main__":
