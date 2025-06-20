@@ -1,0 +1,71 @@
+[
+  {
+    "specversion": "1.0",
+    "id": "7d2a5c7782e670b0a476e45b16e3fee462c1d3f1",
+    "source": "https://github.com/bitergia/grimoirelab-metrics",
+    "type": "org.grimoirelab.events.git.file.added",
+    "time": 1741706102,
+    "data": {
+      "filename": "LICENSE",
+      "modes": [
+        "000000",
+        "100644"
+      ],
+      "indexes": [
+        "0000000",
+        "9cecc1d"
+      ],
+      "similarity": null,
+      "new_filename": null,
+      "added_lines": "674",
+      "deleted_lines": "0"
+    },
+    "linked_event": "bdee9eb604662a3bf52a99e3cd5bcb1e5b21f155"
+  },
+  {
+    "specversion": "1.0",
+    "id": "1235c7782e670b0a476e45b16e3fee462c1d3f1",
+    "source": "https://github.com/bitergia/grimoirelab-metrics",
+    "type": "org.grimoirelab.events.git.file.added",
+    "time": 1709872866,
+    "data": {
+      "filename": "ADOPTERS.txt",
+      "modes": [
+        "000000",
+        "100644"
+      ],
+      "indexes": [
+        "0000000",
+        "9cecc1d"
+      ],
+      "similarity": null,
+      "new_filename": null,
+      "added_lines": "674",
+      "deleted_lines": "0"
+    },
+    "linked_event": "12349eb604662a3bf52a99e3cd5bcb1e5b21f155"
+  },
+  {
+    "specversion": "1.0",
+    "id": "ca3c67cce813b19b7b50b0d71fbaacc62295f33d",
+    "source": "https://github.com/bitergia/grimoirelab-metrics",
+    "type": "org.grimoirelab.events.git.file.replaced",
+    "time": 1709882866,
+    "data": {
+      "filename": "ADOPTERS.txt",
+      "modes": [
+        "100644",
+        "100644"
+      ],
+      "indexes": [
+        "1a143b3",
+        "981100a"
+      ],
+      "similarity": null,
+      "new_filename": "NOT_ADOPTERS",
+      "added_lines": "0",
+      "deleted_lines": "0"
+    },
+    "linked_event": "e49b998f141ce8e05fc3d6fb435fa5b55c7b9e61"
+  }
+]

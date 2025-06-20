@@ -202,6 +202,24 @@ usually indicated by new commits.
 This metric shows the number of days since the last commit was submitted to the
 repository or the project.
 
+### Presence of an adopters file in a standard location
+
+This metric verifies the existence of a file containing the full text of
+the project's adopters.
+
+Standard practice dictates that this file is named `ADOPTERS`, `ADOPTERS.md`,
+or `ADOPTERS.txt`, and is located in the root directory of the project's
+source code repository.
+
+### Presence of a license file in a standard location
+
+This metric verifies the existence of a file containing the full text of
+the project's chosen open source license.
+
+Standard practice dictates that this file is named `LICENSE`, `LICENSE.md`,
+`LICENSE.txt`, or `COPYING` (a convention historically used by GNU projects)
+and is located in the root directory of the project's source code repository.
+
 ### Other metrics
 
 - Number of commits per repository
