@@ -554,6 +554,42 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         recent_commits = self.analyzer.get_recent_commits()
         self.assertEqual(recent_commits, 1)
 
+    def test_get_rate_casual_regular_contributors(self):
+        """Test if the rate of casual and regular contributors is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        # 1 casual contributors and 2 regular contributor
+        rate = self.analyzer.get_rate_casual_regular_contributors()
+        self.assertEqual(rate, 0.5)
+
+        # Add events from new contributors
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": now.isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new_2.com>",
+                    "message": "Another commit 2",
+                    "CommitDate": now.isoformat(),
+                },
+            },
+        ]
+
+        # 1 casual contributor and 4 regular contributors
+        self.analyzer.process_events(extra_events)
+        rate = self.analyzer.get_rate_casual_regular_contributors()
+        self.assertEqual(rate, 0.25)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -202,6 +202,17 @@ usually indicated by new commits.
 This metric shows the number of days since the last commit was submitted to the
 repository or the project.
 
+### Number of contributors contributing infrequently vs. regularly
+
+This metric involves categorizing contributors based on the frequency,
+consistency, and intensity of their contributions over a defined period. It aims
+to distinguish between individuals who contribute episodically
+(infrequent contributors) and those who engage with the project consistently
+and often substantially (regular or core contributors).
+
+The CHAOSS community, for instance, defines "Occasional Contributors" as
+"people who make contributions to a project on an irregular basis".
+
 ### Other metrics
 
 - Number of commits per repository
