@@ -238,6 +238,12 @@ of "contributor retention," counts the number of unique individuals who were
 active contributors in the last 90 days and had also made contributions in one
 or more defined previous periods.
 
+### Rate of commits over specified periods
+
+This metrics calculates the rate of commits between the last 90 days and
+the last year. The purpose of this metrics is having an estimation of how
+distributed contributions are, and the "momentum" of the project.
+
 ### Other metrics
 
 - Number of commits per repository

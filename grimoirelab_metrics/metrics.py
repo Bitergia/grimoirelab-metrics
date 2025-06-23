@@ -268,6 +268,14 @@ class GitEventsAnalyzer:
 
         return self.recent_commits
 
+    def get_commits_over_periods_rate(self):
+        """Return the rate of commits between a recent period and the last year."""
+
+        try:
+            return self.recent_commits / self.total_commits
+        except ZeroDivisionError:
+            return 0.0
+
     def get_growth_of_contributors(self):
         """Return the growth of contributors by period."""
 
@@ -619,6 +627,7 @@ def get_repository_metrics(
     metrics["metrics"]["days_since_last_commit"] = analyzer.get_days_since_last_commit()
     metrics["metrics"]["casual_regular_contributors_rate"] = analyzer.get_casual_regular_contributors_rate()
     metrics["metrics"]["returning_contributors"] = analyzer.get_returning_contributors()
+    metrics["metrics"]["commits_over_periods_rate"] = analyzer.get_commits_over_periods_rate()
 
     if from_date and to_date:
         days = (to_date - from_date).days
