@@ -231,6 +231,13 @@ and often substantially (regular or core contributors).
 The CHAOSS community, for instance, defines "Occasional Contributors" as
 "people who make contributions to a project on an irregular basis".
 
+### Number of contributors who have contributed in previous periods
+
+This metric, often referred to as "returning contributors" or as an indicator
+of "contributor retention," counts the number of unique individuals who were
+active contributors in the last 90 days and had also made contributions in one
+or more defined previous periods.
+
 ### Other metrics
 
 - Number of commits per repository
