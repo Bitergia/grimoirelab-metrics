@@ -321,6 +321,20 @@ class GitEventsAnalyzer:
 
         return days_since_last_commit
 
+    def get_casual_regular_contributors_rate(self):
+        """Calculate the rate between casual contributors and regular contributors."""
+
+        dev_categories = self.get_developer_categories()
+        core_and_regular = dev_categories["core"] + dev_categories["regular"]
+        casual = dev_categories["casual"]
+
+        if not core_and_regular:
+            # If there are no core or regular contributors, return 0
+            # because there shouldn't be any casual contributors.
+            return 0.0
+        else:
+            return casual / core_and_regular
+
     def get_found_files(self):
         """Return the files found in the repository."""
 
@@ -593,6 +607,7 @@ def get_repository_metrics(
     metrics["metrics"]["contributor_growth_rate"] = analyzer.get_growth_rate_of_contributors()
     metrics["metrics"]["active_branches"] = analyzer.get_active_branch_count()
     metrics["metrics"]["days_since_last_commit"] = analyzer.get_days_since_last_commit()
+    metrics["metrics"]["casual_regular_contributors_rate"] = analyzer.get_casual_regular_contributors_rate()
 
     if from_date and to_date:
         days = (to_date - from_date).days
