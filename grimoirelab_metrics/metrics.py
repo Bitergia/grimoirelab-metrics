@@ -79,6 +79,7 @@ class GitEventsAnalyzer:
         self.recent_commits: int = 0
         self.contributors: Counter = Counter()
         self.contributors_growth: dict[str, set] = {"first_half": set(), "second_half": set()}
+        self.returning_contributors: dict[str, set] = {"first_period": set(), "second_period": set()}
         self.organizations: Counter = Counter()
         self.recent_organizations: set = set()
         self.recent_contributors: set = set()
@@ -305,6 +306,28 @@ class GitEventsAnalyzer:
 
         return days_since_last_commit
 
+    def get_rate_casual_regular_contributors(self):
+        """Calculate the rate between casual contributors and regular contributors."""
+
+        dev_categories = self.get_developer_categories()
+        core_and_regular = dev_categories["core"] + dev_categories["regular"]
+        casual = dev_categories["casual"]
+
+        if core_and_regular == 0:
+            return casual
+
+        return casual / core_and_regular
+
+    def get_returning_contributors(self):
+        """Return the number of returning contributors by period."""
+
+        returning_contributors = 0
+        for author in self.returning_contributors["first_period"]:
+            if author in self.returning_contributors["second_period"]:
+                returning_contributors += 1
+
+        return returning_contributors
+
     def _update_commit_count(self, event_data):
         """Update the commit count and commits by period."""
 
@@ -340,14 +363,13 @@ class GitEventsAnalyzer:
                 self.contributors_growth["second_half"].add(author)
 
         # Update contributors by period
-        try:
-            commit_date = str_to_datetime(event_data.get("CommitDate"))
+        if commit_date:
             days_interval = (self.to_date - commit_date).days
-        except (ValueError, TypeError, InvalidDateError):
-            pass
-        else:
             if days_interval <= 90:
                 self.recent_contributors.add(author)
+                self.returning_contributors["second_period"].add(author)
+            else:
+                self.returning_contributors["first_period"].add(author)
 
     def _update_organizations(self, event_data):
         try:
@@ -501,6 +523,8 @@ def get_repository_metrics(
     metrics["metrics"]["contributor_growth_rate"] = analyzer.get_growth_rate_of_contributors()
     metrics["metrics"]["active_branches"] = analyzer.get_active_branch_count()
     metrics["metrics"]["days_since_last_commit"] = analyzer.get_days_since_last_commit()
+    metrics["metrics"]["casual_regular_contributors_rate"] = analyzer.get_rate_casual_regular_contributors()
+    metrics["metrics"]["returning_contributors"] = analyzer.get_returning_contributors()
 
     if from_date and to_date:
         days = (to_date - from_date).days
