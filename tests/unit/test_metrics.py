@@ -31,6 +31,7 @@ class TestGitEventsAnalyzer(unittest.TestCase):
     def setUp(self):
         self.analyzer = GitEventsAnalyzer()
         self.events = json.loads(read_file("data/events.json"))
+        self.file_events = json.loads(read_file("data/file_events.json"))
 
     def test_commit_count(self):
         """Test that the commit count is calculated correctly"""
@@ -553,6 +554,57 @@ class TestGitEventsAnalyzer(unittest.TestCase):
 
         recent_commits = self.analyzer.get_recent_commits()
         self.assertEqual(recent_commits, 1)
+
+    def test_found_files(self):
+        """Test if license and adopters files are found correctly"""
+
+        self.analyzer.process_events(self.file_events)
+
+        found_files = self.analyzer.get_found_files()
+        self.assertTrue(found_files["license"])
+        self.assertFalse(found_files["adopters"])
+
+        # Add an event with an ADOPTERS file and rename LICENSE file to LICENSES
+        extra_events = [
+            {
+                "specversion": "1.0",
+                "id": "1235c7782e670b0a476e45b16e3fee462c1d3f1",
+                "source": "https://github.com/bitergia/grimoirelab-metrics",
+                "type": "org.grimoirelab.events.git.file.added",
+                "time": 1750233485,
+                "data": {
+                    "filename": "ADOPTERS.txt",
+                    "modes": ["000000", "100644"],
+                    "indexes": ["0000000", "9cecc1d"],
+                    "similarity": None,
+                    "new_filename": None,
+                    "added_lines": "674",
+                    "deleted_lines": "0",
+                },
+                "linked_event": "12349eb604662a3bf52a99e3cd5bcb1e5b21f155",
+            },
+            {
+                "specversion": "1.0",
+                "id": "98f5938cebd712b8b3f84661fbc8ce8895a1bbdd",
+                "source": "https://github.com/bitergia/grimoirelab-metrics",
+                "type": "org.grimoirelab.events.git.file.replaced",
+                "time": 1750233485,
+                "data": {
+                    "filename": "LICENSE",
+                    "modes": ["100644", "100644"],
+                    "indexes": ["e69de29", "e69de29"],
+                    "similarity": None,
+                    "new_filename": "LICENSES",
+                    "added_lines": "0",
+                    "deleted_lines": "0",
+                },
+                "linked_event": "c0ed58001d78e096ad5bcb1267f5dd596ac5f6d3",
+            },
+        ]
+        self.analyzer.process_events(extra_events)
+        found_files = self.analyzer.get_found_files()
+        self.assertFalse(found_files["license"])
+        self.assertTrue(found_files["adopters"])
 
 
 if __name__ == "__main__":
