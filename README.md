@@ -220,6 +220,30 @@ Standard practice dictates that this file is named `LICENSE`, `LICENSE.md`,
 `LICENSE.txt`, or `COPYING` (a convention historically used by GNU projects)
 and is located in the root directory of the project's source code repository.
 
+### Rate of contributors contributing infrequently vs. regularly
+
+This metric involves categorizing contributors based on the frequency,
+consistency, and intensity of their contributions over a defined period. It aims
+to distinguish between individuals who contribute episodically
+(infrequent contributors) and those who engage with the project consistently
+and often substantially (regular or core contributors).
+
+The CHAOSS community, for instance, defines "Occasional Contributors" as
+"people who make contributions to a project on an irregular basis".
+
+### Number of contributors who have contributed in previous periods
+
+This metric, often referred to as "returning contributors" or as an indicator
+of "contributor retention," counts the number of unique individuals who were
+active contributors in the last 90 days and had also made contributions in one
+or more defined previous periods.
+
+### Rate of commits over specified periods
+
+This metrics calculates the rate of commits between the last 90 days and
+the last year. The purpose of this metrics is having an estimation of how
+distributed contributions are, and the "momentum" of the project.
+
 ### Other metrics
 
 - Number of commits per repository

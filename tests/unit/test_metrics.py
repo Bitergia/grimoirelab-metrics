@@ -606,6 +606,150 @@ class TestGitEventsAnalyzer(unittest.TestCase):
         self.assertFalse(found_files["license"])
         self.assertTrue(found_files["adopters"])
 
+    def test_get_casual_regular_contributors_rate(self):
+        """Test if the rate of casual and regular contributors is calculated correctly"""
+
+        # 0 contributors
+        rate = self.analyzer.get_casual_regular_contributors_rate()
+        self.assertEqual(rate, 0)
+
+        self.analyzer.process_events(self.events)
+
+        # 1 casual contributors and 2 regular contributor
+        rate = self.analyzer.get_casual_regular_contributors_rate()
+        self.assertEqual(rate, 0.5)
+
+        # Add events from new contributors
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": now.isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new_2.com>",
+                    "message": "Another commit 2",
+                    "CommitDate": now.isoformat(),
+                },
+            },
+        ]
+
+        # 1 casual contributor and 4 regular contributors
+        self.analyzer.process_events(extra_events)
+        rate = self.analyzer.get_casual_regular_contributors_rate()
+        self.assertEqual(rate, 0.25)
+
+    def test_get_returning_contributors(self):
+        """Test if the returning contributors are calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        returning_contributors = self.analyzer.get_returning_contributors()
+        self.assertEqual(returning_contributors, 0)
+
+        # Add events from returning contributors
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "UserTwo <usertwo@example2.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=15)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "User One <userone@example.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=60)).isoformat(),
+                },
+            },
+        ]
+
+        self.analyzer.process_events(extra_events)
+        returning_contributors = self.analyzer.get_returning_contributors()
+        self.assertEqual(returning_contributors, 2)
+
+    def test_get_commits_rate_empty(self):
+        """Test if the commits rate is calculated correctly when there are no commits"""
+
+        # There are no commits
+        rate = self.analyzer.get_commits_over_periods_rate()
+        self.assertEqual(rate, 0)
+
+    def test_get_commits_rate(self):
+        """Test if the commits rate is calculated correctly"""
+
+        self.analyzer.process_events(self.events)
+
+        # 0 commits in the last 90 days vs 9 commits in total
+        rate = self.analyzer.get_commits_over_periods_rate()
+        self.assertEqual(rate, 0)
+
+        # Add events from new commits
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        extra_events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=15)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 2 <author2@example_new_2.com>",
+                    "message": "Another commit 2",
+                    "CommitDate": (now - datetime.timedelta(days=60)).isoformat(),
+                },
+            },
+        ]
+        self.analyzer.process_events(extra_events)
+
+        # 2 commits in the last 90 days vs 11 commits in total
+        rate = self.analyzer.get_commits_over_periods_rate()
+        self.assertAlmostEqual(rate, 0.18, delta=0.01)
+
+    def test_get_commits_rate_only_last_30_days(self):
+        """Test if the commits rate is calculated correctly when there are only commits in the last 30 days"""
+
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        events = [
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 1 <author1@example_new.com>",
+                    "message": "Another commit",
+                    "CommitDate": (now - datetime.timedelta(days=15)).isoformat(),
+                },
+            },
+            {
+                "type": "org.grimoirelab.events.git.commit",
+                "data": {
+                    "Author": "Author 2 <author2@example_new_2.com>",
+                    "message": "Another commit 2",
+                    "CommitDate": (now - datetime.timedelta(days=20)).isoformat(),
+                },
+            },
+        ]
+        self.analyzer.process_events(events)
+
+        # 2 commits in the last 30 days vs 2 commits in total
+        rate = self.analyzer.get_commits_over_periods_rate()
+        self.assertEqual(rate, 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()
