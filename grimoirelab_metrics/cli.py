@@ -66,6 +66,7 @@ DEFAULT_ELEPHANT_THRESHOLD = 0.5
 @click.option("--opensearch-user", type=str, help="OpenSearch user", default=None)
 @click.option("--opensearch-password", type=str, help="OpenSearch password", default=None)
 @click.option("--opensearch-ca-certs", type=str, help="OpenSearch CA certificate path (.pem file)", default=None)
+@click.option("--opensearch-timeout", type=int, help="OpenSearch timeout in seconds", default=30)
 @click.option("--output", help="File where the scores will be written", type=click.File("w"), default=sys.stdout)
 @click.option(
     "--repository-timeout",
@@ -110,6 +111,7 @@ def grimoirelab_metrics(
     opensearch_user: str | None = None,
     opensearch_password: str | None = None,
     opensearch_ca_certs: str | None = None,
+    opensearch_timeout: int = 30,
     output: typing.TextIO = sys.stdout,
     repository_timeout: int = 3600,
     from_date: datetime.datetime | None = None,
@@ -160,6 +162,7 @@ def grimoirelab_metrics(
             opensearch_user=opensearch_user,
             opensearch_password=opensearch_password,
             opensearch_ca_certs=opensearch_ca_certs,
+            opensearch_timeout=opensearch_timeout,
             from_date=from_date,
             to_date=to_date,
             verify_certs=verify_certs,
@@ -258,6 +261,7 @@ def generate_metrics_when_ready(
     opensearch_user: str | None = None,
     opensearch_password: str | None = None,
     opensearch_ca_certs: str | None = None,
+    opensearch_timeout: int = 30,
     from_date: datetime.datetime | None = None,
     to_date: datetime.datetime | None = None,
     verify_certs: bool = False,
@@ -277,6 +281,7 @@ def generate_metrics_when_ready(
     :param opensearch_user: OpenSearch user.
     :param opensearch_password: OpenSearch password.
     :param opensearch_ca_certs: OpenSearch CA certificate.
+    :param opensearch_timeout: OpenSearch timeout.
     :param from_date: Start date for metrics.
     :param to_date: End date for metrics.
     :param verify_certs: Verify SSL/TLS certificates.
@@ -306,6 +311,7 @@ def generate_metrics_when_ready(
                     opensearch_user=opensearch_user,
                     opensearch_password=opensearch_password,
                     opensearch_ca_certs=opensearch_ca_certs,
+                    opensearch_timeout=opensearch_timeout,
                     from_date=from_date,
                     to_date=to_date,
                     verify_certs=verify_certs,
