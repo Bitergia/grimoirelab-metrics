@@ -538,6 +538,7 @@ def get_repository_metrics(
     opensearch_user: str = None,
     opensearch_password: str = None,
     opensearch_ca_certs: str = None,
+    opensearch_timeout: int = 30,
     from_date: datetime.datetime = None,
     to_date: datetime.datetime = None,
     verify_certs: bool = True,
@@ -556,6 +557,7 @@ def get_repository_metrics(
     :param opensearch_user: Username to connect to OpenSearch, by default None
     :param opensearch_password: Password to connect to OpenSearch, by default None
     :param opensearch_ca_certs: Path to the CA certificate, by default None
+    :param opensearch_timeout: Timeout for the OpenSearch connection, by default 30
     :param verify_certs: Boolean, verify SSL/TLS certificates, default True
     :param from_date: Start date, by default None
     :param to_date: End date, by default None
@@ -571,6 +573,7 @@ def get_repository_metrics(
         password=opensearch_password,
         ca_certs_path=opensearch_ca_certs,
         verify_certs=verify_certs,
+        timeout=opensearch_timeout,
     )
 
     analyzer = GitEventsAnalyzer(
@@ -695,6 +698,7 @@ def connect_to_opensearch(
     ca_certs_path: str | None = None,
     verify_certs: bool = True,
     max_retries: int = 3,
+    timeout: int = 30,
 ) -> OpenSearch:
     """
     Connect to an OpenSearch instance using the given parameters.
@@ -705,6 +709,7 @@ def connect_to_opensearch(
     :param ca_certs_path: Path to the CA certificate
     :param verify_certs: Boolean, verify SSL/TLS certificates
     :param max_retries: Maximum number of retries in case of timeout
+    :param timeout: Timeout for each request in seconds
 
     :return: OpenSearch connection
     """
@@ -722,6 +727,7 @@ def connect_to_opensearch(
         ca_certs=ca_certs_path,
         max_retries=max_retries,
         retry_on_timeout=True,
+        timeout=timeout,
     )
 
     return os_conn
